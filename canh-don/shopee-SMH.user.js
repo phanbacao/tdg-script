@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Canh đơn SMH 🟠
 // @namespace    sonmochuong
-// @version      9.6
+// @version      9.6.1
 // @description  Canh đơn Shopee Sơn Mộc Hương → Lark: đơn hoả tốc (nhóm Hoả tốc) + đơn thường sắp quá hạn bàn giao + đơn chưa in nhãn (nhóm Quá hạn) + báo lỗi (nhóm Hệ thống), điểm danh Healthchecks
 // @match        https://banhang.shopee.vn/*
 // @match        https://accounts.shopee.vn/*
@@ -181,7 +181,7 @@
      PHẦN CẤU HÌNH
      ========================================================================== */
 
-  // Bản 9.6: link bí mật (nhóm Lark, Healthchecks) KHÔNG nằm trong bản GitHub.
+  // Bản 9.6.1: link bí mật (nhóm Lark, Healthchecks) KHÔNG nằm trong bản GitHub.
   // Bản cài tay có sẵn link -> cất vào máy; các bản tự cập nhật sau dùng link đã cất.
   const BI_MAT_GOC = {};
   const BI_MAT = (function () {
@@ -355,7 +355,7 @@
 
   const TEN = CAU_HINH.VIET_TAT + ' ' + CAU_HINH.TEN_SAN;
   const TEN_NGAN = CAU_HINH.VIET_TAT + ' 🟠';   // bản 9.0: tên ngắn trong tin Lark và ô trạng thái
-  const PHIEN_BAN = '9.6';
+  const PHIEN_BAN = '9.6.1';
   const logGoc = (...a) => console.log('%c[hoả tốc ' + TEN + ']', 'color:#f60;font-weight:bold', ...a);
   const log = (...a) => { logGoc(...a); try { nkGhiLog(a); } catch (e) {} };   // bản 9.3: kèm nhật ký 7 ngày
   const nghi = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -2773,14 +2773,20 @@
       log('nhắc size: tab gửi tin đã mở đơn ' + (job.ma || job.id));
       const nutChat = await nsCho(function () { return [...document.querySelectorAll('button')].find(function (b) { return /Chat ngay/.test(b.textContent) && b.getBoundingClientRect().width > 0; }); }, 40000, 'nút "Chat ngay"');
       nutChat.click();
-      const che = await nsCho(function () { return [...document.querySelectorAll('span')].find(function (e) { return !e.children.length && /^Chế độ (Giám sát|Chăm sóc Khách hàng)$/.test(e.textContent.trim()) && e.closest('.trigger'); }); }, 25000, 'ô chọn Chế độ chat');
-      if (/Giám sát/.test(che.textContent)) {
+      // Bản 9.6.1: Shopee đã bỏ ô "Chế độ Giám sát / Chăm sóc Khách hàng" ở nhiều cuộc chat (nay là "Chat với Người mua").
+      // -> chỉ chuyển chế độ KHI còn thấy ô "Chế độ Giám sát"; không thấy trong 8 giây thì bỏ qua, gửi luôn.
+      let che = null;
+      try { che = await nsCho(function () { return [...document.querySelectorAll('span')].find(function (e) { return !e.children.length && /^(Chế độ (Giám sát|Chăm sóc Khách hàng)|Chat với Người mua)$/.test(e.textContent.trim()) && e.closest('.trigger'); }); }, 8000, 'ô chọn Chế độ chat'); } catch (e) { che = null; }
+      if (!che) log('nhắc size: không thấy ô chọn chế độ chat — bỏ qua bước này, gửi luôn');
+      else if (/Giám sát/.test(che.textContent)) {
         che.closest('.trigger').click();
-        const opt = await nsCho(function () { return [...document.querySelectorAll('.shopee-react-select-option')].find(function (e) { return /Chăm sóc Khách hàng/.test(e.textContent); }); }, 8000, 'lựa chọn "Chế độ Chăm sóc Khách hàng"');
-        opt.click();
-        log('nhắc size: đã chuyển chat sang Chế độ Chăm sóc Khách hàng');
-        await nsNghi(2000);
-      }
+        try {
+          const opt = await nsCho(function () { return [...document.querySelectorAll('.shopee-react-select-option')].find(function (e) { return /Chăm sóc Khách hàng/.test(e.textContent); }); }, 8000, 'lựa chọn "Chế độ Chăm sóc Khách hàng"');
+          opt.click();
+          log('nhắc size: đã chuyển chat sang Chế độ Chăm sóc Khách hàng');
+          await nsNghi(2000);
+        } catch (e) { log('nhắc size: không chuyển được Chế độ Chăm sóc Khách hàng (' + e.message + ') — vẫn thử gửi'); try { document.body.click(); } catch (e2) {} }
+      } else log('nhắc size: ô chat đang ở "' + che.textContent.trim() + '" — gửi luôn');
       let ta = document.querySelector('textarea[placeholder="Nhập nội dung tin nhắn"]');
       if (!ta) { nutChat.click(); ta = await nsCho(function () { return document.querySelector('textarea[placeholder="Nhập nội dung tin nhắn"]'); }, 25000, 'ô nhập tin nhắn'); }
       await nsNghi(3000);   // chờ tải tin cũ để kiểm trùng
@@ -2809,7 +2815,7 @@
   function nsChayTabCon() { setTimeout(function () { nsConGui(false); }, 4000); }
 
 
-  /* ---------- Bản 9.6: TỰ CẬP NHẬT từ GitHub ----------
+  /* ---------- Bản 9.6.1: TỰ CẬP NHẬT từ GitHub ----------
      - Tampermonkey tự tải bản mới (link @updateURL). Script chỉ: ghi nhật ký,
        báo nhóm Cao hệ thống khi máy đã lên bản mới, tải lại trang (lúc rảnh, tối đa
        1 lần/giờ) để nạp bản mới, và báo nếu sau 8 tiếng máy vẫn chưa lên bản. */
