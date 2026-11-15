@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Note fulfillment tiktok
 // @namespace    sonmochuong.ntt
-// @version      1.6
+// @version      1.6.1
 // @description  PC in đơn — TikTok Shop: banner cảnh báo giữa-trên màn hình (hoả tốc, Note khách, Note shop, SL nhiều, giá trị cao) + tô màu và dải Note trên bảng đơn + đèn trạng thái + số đơn trên tên tab. Không in, không có nút Báo lỗi.
 // @match        https://seller-vn.tiktok.com/*
 // @run-at       document-start
@@ -18,7 +18,7 @@
 (function () {
   'use strict';
 
-  const PHIEN_BAN = '1.6';
+  const PHIEN_BAN = '1.6.1';
   const TEN_SCRIPT = 'Note fulfillment tiktok';
 
   if (window.__NOTE_FULFILLMENT_TIKTOK) {
@@ -725,7 +725,7 @@
   let chuKyBanner = '';
   function veBanner() {
     if (!document.body) return;
-    const ds = ((du && du.canhBao) || []).map(tatLoc).filter(coCanhBao);   // bản 1.6: bỏ Note đã tắt
+    const ds = ((du && du.canhBao) || []).map(tatLoc).filter(coCanhBao);   // bản 1.6.1: bỏ Note đã tắt
     const den = trangThaiDen();
     
      const hienSt = true; 
@@ -1033,7 +1033,7 @@
 
   setTimeout(xnBatDau, 2500);   // bản 1.5: nút Xem ngay
 
-  /* ---------- Bản 1.6: nút ✕ tắt từng Note trên popup ----------
+  /* ---------- Bản 1.6.1: nút ✕ tắt từng Note trên popup ----------
      Bấm ✕ -> Note của đơn đó ẩn hẳn (lưu trong máy, F5 không hiện lại).
      Dòng Hoả tốc không có ✕. Cuối popup có "↺ Hiện lại N note đã tắt". */
   const TAT = { P: 'ntt', POPUP: 'ntt-banner', NOTE: '.ntt-t .k, .ntt-t .s', KEY: 'ntt-note-da-tat' };
@@ -1089,31 +1089,49 @@
       tatDong();
     } catch (e) {}
   }
-  // dòng "↺ Hiện lại N note đã tắt" (trong popup; popup đã tắt hết thì hiện 1 nút nhỏ riêng)
+  // Chân popup: "↺ Hiện lại N note đã tắt" (trái) + tên script · phiên bản (phải, bản 1.6.1)
+  // Popup đã tắt hết mà còn note bị tắt thì hiện 1 nút nhỏ riêng ở giữa mép trên.
+  function tatHienLai() {
+    const m = tatDoc(); for (const k in tatThay) { delete m[k]; delete tatThay[k]; } tatGhi(m);
+    try { log('Hiện lại các Note đã tắt'); } catch (e) {}
+    const d = document.getElementById(TAT.P + '-hienlai'); if (d) d.remove();
+    const pp = document.getElementById(TAT.POPUP); if (pp) pp.remove();
+    tatVeLai();
+  }
+  function tatLink(n) {
+    const a = document.createElement('a');
+    a.href = '#'; a.style.cssText = 'color:#1565c0;text-decoration:none;cursor:pointer;font-weight:700';
+    a.textContent = '↺ Hiện lại ' + n + ' note đã tắt';
+    a.onclick = function (ev) { ev.preventDefault(); ev.stopPropagation(); tatHienLai(); };
+    return a;
+  }
   function tatDong() {
     const n = tatSoDangAn();
     const p = document.getElementById(TAT.POPUP);
-    let d = document.getElementById(TAT.P + '-hienlai');
-    if (!n) { if (d) d.remove(); return; }
-    const cha = p || document.body;
-    if (!d || d.parentElement !== cha) {
-      if (d) d.remove();
-      d = document.createElement('div'); d.id = TAT.P + '-hienlai';
-      d.style.cssText = p ? 'margin-top:6px;text-align:right;font:700 12px system-ui,sans-serif'
-        : 'position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:2147483646;background:#fff;border:1px solid #c9ced6;border-radius:14px;padding:3px 10px;font:700 12px system-ui,sans-serif;box-shadow:0 2px 6px rgba(0,0,0,.15)';
-      const a = document.createElement('a');
-      a.href = '#'; a.style.cssText = 'color:#1565c0;text-decoration:none;cursor:pointer';
-      a.onclick = function (ev) {
-        ev.preventDefault(); ev.stopPropagation();
-        const m = tatDoc(); for (const k in tatThay) { delete m[k]; delete tatThay[k]; } tatGhi(m);
-        try { log('Hiện lại các Note đã tắt'); } catch (e) {}
-        d.remove(); const pp = document.getElementById(TAT.POPUP); if (pp) pp.remove();
-        tatVeLai();
-      };
-      d.appendChild(a); cha.appendChild(d);
+    let pill = document.getElementById(TAT.P + '-hienlai');
+    if (p) {
+      if (pill) pill.remove();
+      let f = document.getElementById(TAT.P + '-chan');
+      if (!f || f.parentElement !== p || p.lastElementChild !== f) { if (f) f.remove(); f = document.createElement('div'); f.id = TAT.P + '-chan'; f._k = ''; p.appendChild(f); }
+      const k = String(n);
+      if (f._k === k) return;
+      f._k = k; f.textContent = '';
+      f.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:6px;font:12px/1.3 system-ui,"Segoe UI",sans-serif';
+      const trai = document.createElement('span'); trai.style.cssText = 'flex:1;min-width:0';
+      if (n) trai.appendChild(tatLink(n));
+      const phai = document.createElement('span');
+      phai.textContent = 'Note fulfillment tiktok · ' + PHIEN_BAN; phai.title = 'Script đang chạy · phiên bản';
+      phai.style.cssText = 'flex:none;color:#6b7280;font-weight:600';
+      f.appendChild(trai); f.appendChild(phai);
+      return;
     }
-    d.firstChild.textContent = '↺ Hiện lại ' + n + ' note đã tắt';
+    if (!n) { if (pill) pill.remove(); return; }
+    if (!pill) {
+      pill = document.createElement('div'); pill.id = TAT.P + '-hienlai';
+      pill.style.cssText = 'position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:2147483646;background:#fff;border:1px solid #c9ced6;border-radius:14px;padding:3px 10px;font:700 12px system-ui,sans-serif;box-shadow:0 2px 6px rgba(0,0,0,.15)';
+      pill.appendChild(tatLink(n)); document.body.appendChild(pill);
+    } else pill.firstChild.textContent = '↺ Hiện lại ' + n + ' note đã tắt';
   }
 
-  setInterval(tatNut, 1000);   // bản 1.6: nút ✕ tắt Note
+  setInterval(tatNut, 1000);   // bản 1.6.1: nút ✕ tắt Note
 })();
