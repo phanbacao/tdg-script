@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Canh đơn SMH ⚫
 // @namespace    sonmochuong
-// @version      6.6
+// @version      6.7
 // @description  Canh đơn TikTok Sơn Mộc Hương → Lark: đơn hoả tốc (nhóm Hoả tốc) + đơn thường sắp quá hạn bàn giao (nhóm Quá hạn) + báo lỗi (nhóm Hệ thống), điểm danh Healthchecks
 // @match        https://seller-vn.tiktok.com/*
 // @grant        GM_xmlhttpRequest
@@ -218,7 +218,7 @@
      PHẦN CẤU HÌNH
      ========================================================================== */
 
-  // Bản 6.6: link bí mật (nhóm Lark, Healthchecks) KHÔNG nằm trong bản GitHub.
+  // Bản 6.7: link bí mật (nhóm Lark, Healthchecks) KHÔNG nằm trong bản GitHub.
   // Bản cài tay có sẵn link -> cất vào máy; các bản tự cập nhật sau dùng link đã cất.
   const BI_MAT_GOC = {};
   const BI_MAT = (function () {
@@ -419,7 +419,7 @@
 
   const TEN = CAU_HINH.VIET_TAT + ' ' + CAU_HINH.TEN_SAN;
   const TEN_NGAN = CAU_HINH.VIET_TAT + ' ⚫';   // bản 6.0: tên ngắn trong tin Lark và ô trạng thái
-  const PHIEN_BAN = '6.6';
+  const PHIEN_BAN = '6.7';
   const logGoc = (...a) => console.log('%c[hoả tốc ' + TEN + ']', 'color:#0a8;font-weight:bold', ...a);
   const log = (...a) => { logGoc(...a); try { nkGhiLog(a); } catch (e) {} };   // bản 6.3: kèm nhật ký 7 ngày
   const nghi = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -780,6 +780,11 @@
       if ((r = /^đã canh lại bình thường(?: \(gián đoạn khoảng (\d+) phút\))?(?: · (.+))?/.exec(nd)))
         return the('green', '✅ ' + TEN_NGAN + ' · đã canh lại' + (r[1] ? ' · gián đoạn ' + r[1] + ' phút' : '') + (r[2] ? ' (' + r[2] + ')' : ''), '', chan);
       if (/^🧪/.test(nd)) return the('blue', '🧪 ' + TEN_NGAN + ' · ' + nd.replace(/^🧪 /, ''), '', chan);
+      // bản 6.7: thẻ cho tin nhắc size / tự cập nhật
+      if ((r = /^💬 (\S+) · ([\s\S]+)$/.exec(nd))) return the('green', '💬 ' + TEN_NGAN + ' · đã nhắn nhắc size 8li', boMd(r[2]), chan, boMd(r[1]));
+      if ((r = /^✋ (\S+) · ([\s\S]+?) — ([\s\S]+)$/.exec(nd))) return the('orange', '✋ ' + TEN_NGAN + ' · cần nhắn tay size 8li', boMd(r[2] + ' — ' + r[3]), chan, boMd(r[1]));
+      if ((r = /^✅ đã tự cập nhật lên bản ([\d.]+)\s*(.*)$/.exec(nd))) return the('green', '✅ ' + TEN_NGAN + ' · đã lên ' + r[1], boMd(r[2]), chan);
+      if (/^⚠ GitHub đã có bản/.test(nd)) return the('orange', '⚠ ' + TEN_NGAN + ' · chưa tự cập nhật', boMd(nd.replace(/^⚠ /, '')), chan);
       const ds = [
         [/đăng xuất|mất phiên/, function () { return 'đăng xuất'; }],
         [/chặn tải danh sách đơn/, function () { return 'TikTok chặn tải đơn'; }],   // bản 6.3
@@ -1053,28 +1058,80 @@
   function bamTaiNhatKy(b) {
     if (b.disabled) return;
     b.disabled = true;
-    b.textContent = '⏳ Đang tạo file…';
-    try { taiNhatKy(); b.textContent = '✔ Đã tải — thư mục Tải về'; }
-    catch (e) { b.textContent = '⚠ Không tạo được file'; log('không tải được nhật ký', e); }
-    setTimeout(function () { b.disabled = false; b.textContent = '⬇ Tải nhật ký'; }, 5000);
+    b.textContent = '⏳';
+    try { taiNhatKy(); b.textContent = '✔'; oBao('✔ Đã tải nhật ký — xem thư mục Tải về'); }
+    catch (e) { b.textContent = '⚠'; oBao('⚠ Không tạo được file nhật ký'); log('không tải được nhật ký', e); }
+    setTimeout(function () { b.disabled = false; b.textContent = '⬇'; }, 5000);
   }
+  // Bản 6.7: hàng nút gọn (phương án A) — 1 nút lớn + 3 nút biểu tượng, rê chuột hiện tên, không lẹm
   function hangNut(el, co) {
     let h = document.getElementById('__hoatoc_nut');
     if (!h) {
       h = document.createElement('div');
       h.id = '__hoatoc_nut';
-      h.appendChild(taoNutO('🔄 Tải lại trang', bamTaiLai));
-      h.appendChild(taoNutO('📋 Xem nhật ký', function () { moNhatKy(); }));
-      h.appendChild(taoNutO('⬇ Tải nhật ký', bamTaiNhatKy));
-      h.appendChild(taoNutO('✏ Tin nhắc', nsMoSua));   // bản 6.5
+      h.style.cssText = 'display:flex;gap:6px;margin-top:10px;align-items:stretch';
+      const lon = taoNutO('🔄 Tải lại trang', bamTaiLai);
+      lon.title = 'Tải lại trang an toàn (giữ hàng chờ tin Lark)';
+      lon.style.cssText += ';flex:1;min-width:0;background:#fff;border:0;font-size:14px;padding:7px 10px;white-space:normal;line-height:1.25';
+      h.appendChild(lon);
+      [['📋', 'Xem nhật ký 7 ngày', function () { moNhatKy(); }],
+       ['⬇', 'Tải nhật ký về máy', bamTaiNhatKy],
+       ['⚙', 'Cấu hình', moCauHinh]].forEach(function (x) {
+        const b = taoNutO(x[0], x[2]);
+        b.title = x[1];
+        b.style.cssText += ';flex:none;width:38px;padding:6px 0;font-size:16px;line-height:1;border:1px solid rgba(255,255,255,.55);background:rgba(255,255,255,.16)';
+        h.appendChild(b);
+      });
       el.appendChild(h);
     }
-    if (h._co === co) return;
-    h._co = co;
-    h.style.cssText = 'display:flex;gap:' + Math.round(co * 0.45) + 'px;margin-top:' + Math.round(co * 0.5) + 'px';
-    h.children[0].style.fontSize = Math.round(co * 1.15) + 'px';
-    h.children[0].style.flex = '2';
-    for (let i = 1; i < h.children.length; i++) { h.children[i].style.fontSize = Math.round(co * 0.85) + 'px'; h.children[i].style.flex = '1'; }
+    h.children[0].style.color = el.style.background || '#111';   // chữ nút lớn cùng màu nền ô
+  }
+  // ⚙ Cấu hình: script có nhắc size thì mở hộp cấu hình đầy đủ; không thì hộp thông tin gọn
+  function moCauHinh() {
+    if (typeof nsMoSua === 'function') { nsMoSua(); return; }
+    let p = document.getElementById('__cfg_hop');
+    if (p) { p.remove(); return; }
+    p = document.createElement('div'); p.id = '__cfg_hop';
+    p.style.cssText = 'position:fixed;top:12%;left:50%;transform:translateX(-50%);z-index:2147483647;width:min(420px,92vw);box-sizing:border-box;'
+      + 'background:#1e2128;color:#eee;border-radius:12px;padding:16px 18px;box-shadow:0 10px 34px rgba(0,0,0,.55);font:14px/1.5 system-ui,"Segoe UI",sans-serif';
+    p.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+    p.innerHTML = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><div style="font-weight:800;font-size:17px;flex:1"></div>'
+      + '<span style="font-size:12px;font-weight:700;background:#3b3f48;border-radius:10px;padding:2px 9px"></span></div>'
+      + '<div style="opacity:.8">Script này chưa có mục nào cần cấu hình. Bản mới tự cập nhật từ GitHub (Tampermonkey kiểm tra mỗi 6 giờ).</div>'
+      + '<div style="text-align:right;margin-top:12px"><button style="border:0;border-radius:8px;padding:8px 16px;font-weight:700;cursor:pointer;color:#fff;background:#4b5563">Đóng</button></div>';
+    p.querySelector('div div').textContent = '⚙ Cấu hình · ' + TEN_NGAN;
+    p.querySelector('div span').textContent = PHIEN_BAN;
+    p.querySelector('button').onclick = function () { p.remove(); };
+    document.body.appendChild(p);
+  }
+  // dòng báo ngắn trong ô (VD "✔ Đã tải nhật ký") tự ẩn sau 6 giây
+  function oBao(chu) { O.bao = { chu: chu, t: Date.now() }; try { veO(); } catch (e) {} }
+  // dòng nhắc size (chỉ script có nhắc size) — chỉ vẽ lại khi nội dung đổi, để nút "Xem chat" bấm được
+  function veDongNhacSize(el) {
+    if (typeof nsCuoi !== 'function') return;
+    let d = document.getElementById('__hoatoc_ns');
+    const h = document.getElementById('__hoatoc_nut');
+    if (!d) { d = document.createElement('div'); d.id = '__hoatoc_ns'; el.insertBefore(d, h); }
+    else if (d.nextSibling !== h) el.insertBefore(d, h);
+    const c = nsCuoi(), cfg = nsCfg();
+    let chu, id = '';
+    if (!cfg.gui) chu = '✋ Đang TẮT tự gửi nhắc size — đơn mới sẽ báo Lark để nhắn tay';
+    else if (c.cuoi) {
+      const t = new Date(c.cuoi.t), homNay = new Date().toDateString() === t.toDateString();
+      chu = '💬 Đã nhắn ' + c.cuoi.ma + ' · ' + (homNay ? '' : hai(t.getDate()) + '/' + hai(t.getMonth() + 1) + ' ') + hai(t.getHours()) + ':' + hai(t.getMinutes()) + ' · hôm nay ' + c.dem + '/' + c.toiDa;
+      id = c.cuoi.id;
+    } else chu = '💬 Nhắc size 8li · hôm nay ' + c.dem + '/' + c.toiDa + ' · chưa có đơn nào';
+    const khoa = chu + '|' + id;
+    if (d._khoa === khoa) return;
+    d._khoa = khoa; d.textContent = '';
+    d.style.cssText = 'margin-top:8px;background:rgba(0,0,0,.18);border-radius:8px;padding:6px 8px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;line-height:1.3';
+    const tx = document.createElement('span'); tx.style.cssText = 'flex:1;min-width:0'; tx.textContent = chu; d.appendChild(tx);
+    if (id) {
+      const b = taoNutO('Xem chat', function () { nsXemChat(id); });
+      b.title = 'Mở đơn ' + c.cuoi.ma + ' và bật khung chat với khách';
+      b.style.cssText += ';flex:none;background:#fff;color:#14532d;border:0;font-size:12px;padding:3px 10px';
+      d.appendChild(b);
+    }
   }
 
   function themCssNhay() {
@@ -1173,8 +1230,9 @@
       if (dau === '✖' || dau === '⚠') chiTiet += ghiChuTuSua() + (tonDong ? ' · ⚠ ' + soTinTonDong + ' tin chưa gửi' : '');
 
       el.style.background = nen;
-      el.style.padding = Math.round(co * 0.5) + 'px ' + Math.round(co * 0.9) + 'px';
-      el.style.maxWidth = Math.round((window.innerWidth || 1200) * 0.46) + 'px';
+      el.style.padding = '12px 14px';   // bản 6.7: thẻ rộng cố định, không lẹm
+      el.style.boxSizing = 'border-box';
+      el.style.width = Math.min(420, (window.innerWidth || 1200) - 24) + 'px';
       el.style.animation = (coDon && CAU_HINH.NHAP_NHAY_KHI_CO_DON) ? 'hoatocNhay 0.9s ease-in-out infinite' : 'none';
       el.style.filter = O.sang ? 'brightness(1)' : 'brightness(.62)';
 
@@ -1183,16 +1241,28 @@
       nd.textContent = '';
       hangNut(el, co);
       const t1 = document.createElement('div');
-      t1.style.cssText = 'font-weight:900;font-size:' + Math.round(co * (coDon ? 1.6 : 1.3))
-        + 'px;line-height:1.15;letter-spacing:.2px;white-space:nowrap';
-      t1.textContent = dau + ' ' + nhan;
+      t1.style.cssText = 'display:flex;align-items:center;gap:8px;font-weight:800;font-size:' + (coDon ? 21 : 18) + 'px;line-height:1.2';
+      const tt = document.createElement('span');
+      tt.style.cssText = 'flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+      tt.textContent = dau + ' ' + nhan; tt.title = dau + ' ' + nhan;
+      const vb = document.createElement('span');
+      vb.textContent = PHIEN_BAN; vb.title = 'Phiên bản đang chạy';
+      vb.style.cssText = 'flex:none;font-size:12px;font-weight:700;background:rgba(255,255,255,.22);border-radius:10px;padding:1px 8px';
+      t1.appendChild(tt); t1.appendChild(vb);
       nd.appendChild(t1);
       if (chiTiet) {
         const t2 = document.createElement('div');
-        t2.style.cssText = 'font-weight:600;font-size:' + co + 'px;margin-top:' + Math.round(co * 0.2) + 'px;opacity:.95;line-height:1.3';
+        t2.style.cssText = 'font-weight:600;font-size:13px;margin-top:3px;opacity:.92;line-height:1.35;overflow-wrap:anywhere';
         t2.textContent = chiTiet.replace(/^\d\d:\d\d:\d\d — /, '');
         nd.appendChild(t2);
       }
+      if (O.bao && Date.now() - O.bao.t < 6000) {
+        const t3 = document.createElement('div');
+        t3.style.cssText = 'font-weight:700;font-size:12px;margin-top:4px';
+        t3.textContent = O.bao.chu;
+        nd.appendChild(t3);
+      }
+      veDongNhacSize(el);
       datTenTab(dau);
     } catch (e) { /* trang chưa sẵn sàng */ }
   }
@@ -2641,9 +2711,13 @@
       + 'Nếu chưa nhờ bạn quấn tờ 100k quanh cổ tay, nếu hở 4–6cm hợp 8li; hở 2–4cm nên chọn 7li; hở 0–2cm nên chọn 6li ạ. '
       + 'Nếu bạn cần đổi size khác nhờ bạn nhắn sớm giúp Shop nhé',
   };
-  const NS_K = { tin: 'nhacsize_tin', so: 'nhacsize_so_' + CAU_HINH.VIET_TAT, job: 'nhacsize_job_' + CAU_HINH.VIET_TAT, kq: 'nhacsize_kq_' + CAU_HINH.VIET_TAT };
+  const NS_K = { cfg: 'nhacsize_cfg_' + CAU_HINH.VIET_TAT, tin: 'nhacsize_tin', so: 'nhacsize_so_' + CAU_HINH.VIET_TAT, job: 'nhacsize_job_' + CAU_HINH.VIET_TAT, kq: 'nhacsize_kq_' + CAU_HINH.VIET_TAT };
   function nsGet(k, d) { try { const v = GM_getValue(k, null); return v === null || v === undefined ? d : (typeof v === 'string' && /^[\[{]/.test(v) ? JSON.parse(v) : v); } catch (e) { return d; } }
   function nsSet(k, v) { try { GM_setValue(k, typeof v === 'string' ? v : JSON.stringify(v)); } catch (e) {} }
+  // Bản 9.7: 2 công tắc trong ⚙ Cấu hình (lưu riêng từng máy)
+  function nsCfg() { const c = nsGet(NS_K.cfg, {}) || {}; return { gui: c.gui !== false, baoLark: c.baoLark !== false }; }
+  function nsCfgDat(k, v) { const c = nsCfg(); c[k] = !!v; nsSet(NS_K.cfg, c); log('nhắc size: Cao ' + (v ? 'BẬT' : 'TẮT') + ' "' + (k === 'gui' ? 'Gửi tin nhắc size cho khách' : 'Báo Lark khi đã gửi') + '"'); }
+  function nsCuoi() { const s = nsSo(); const c = s.cuoi; return { cuoi: c && c.ngay === s.ngay ? c : (c || null), dem: s.dem || 0, toiDa: NS.TOI_DA_NGAY }; }
   function nsTin() { const t = nsGet(NS_K.tin, ''); return String(t || '').trim() || NS.MAC_DINH; }
   // sổ: { xet: {id: ts}, gui: {id: {t, ma, ok, lan, loi}}, ngay: 'dd/mm', dem: n }
   function nsSo() {
@@ -2694,7 +2768,13 @@
         const ct = await nsChiTiet(o);
         if (!ct) continue;           // lần sau thử lại
         s.xet[o.id] = Date.now();
-        if (ct.khop) { s.gui[o.id] = { t: Date.now(), ma: ct.ma, ok: false, lan: 0, mon: ct.mon }; moi++; log('nhắc size: đơn ' + ct.ma + ' có ' + ct.mon + ' — xếp hàng gửi tin nhắc'); }
+        if (ct.khop) {
+          if (!nsCfg().gui) {   // bản 9.7: đang TẮT tự gửi -> báo nhắn tay, không gửi
+            s.gui[o.id] = { t: Date.now(), ma: ct.ma, ok: false, lan: 0, mon: ct.mon, bo: true, tay: true };
+            log('nhắc size: đơn ' + ct.ma + ' có ' + ct.mon + ' — đang TẮT tự gửi, báo Lark để nhắn tay');
+            tinHeThong('✋ ' + ct.ma + ' · ' + ct.mon + ' — đang tắt tự gửi, cần nhắn tay cho khách: ' + nsTin());
+          } else { s.gui[o.id] = { t: Date.now(), ma: ct.ma, ok: false, lan: 0, mon: ct.mon }; moi++; log('nhắc size: đơn ' + ct.ma + ' có ' + ct.mon + ' — xếp hàng gửi tin nhắc'); }
+        }
         await nsNghi(400);
       }
       nsLuu(s);
@@ -2708,6 +2788,12 @@
     const cho = Object.keys(s.gui).filter((k) => !s.gui[k].ok && !s.gui[k].bo && (s.gui[k].lan || 0) < 2
       && Date.now() - (s.gui[k].lanCuoi || 0) > 10 * 60000);
     for (const id of cho) {
+      if (!nsCfg().gui) {   // bản 9.7: vừa tắt tự gửi -> các đơn còn chờ chuyển sang nhắn tay
+        const s0 = nsSo();
+        for (const k of cho) { const g0 = s0.gui[k]; if (!g0 || g0.ok || g0.bo) continue; g0.bo = true; g0.tay = true;
+          tinHeThong('✋ ' + g0.ma + ' · ' + (g0.mon || 'vòng 108 hạt 8li') + ' — đang tắt tự gửi, cần nhắn tay cho khách: ' + nsTin()); }
+        nsLuu(s0); log('nhắc size: đang TẮT tự gửi — chuyển đơn còn chờ sang nhắn tay'); return;
+      }
       const s2 = nsSo();
       if (s2.dem >= NS.TOI_DA_NGAY) { log('nhắc size: đã đủ ' + NS.TOI_DA_NGAY + ' tin hôm nay, để mai'); return; }
       const g = s2.gui[id];
@@ -2718,6 +2804,9 @@
       if (kq.ok) {
         g3.ok = true; g3.tGui = Date.now(); s3.dem = (s3.dem || 0) + 1;
         log('nhắc size: ĐÃ GỬI tin nhắc cho đơn ' + g.ma + (kq.loi ? ' (' + kq.loi + ')' : ''));
+        s3.cuoi = { id: String(id), ma: g.ma, t: Date.now(), mon: g.mon || '', ngay: s3.ngay };   // bản 9.7: hiện trên ô trạng thái
+        if (nsCfg().baoLark) tinHeThong('💬 ' + g.ma + ' · ' + (g.mon || 'vòng 108 hạt 8li') + (kq.loi ? ' · ' + kq.loi : ''));
+        try { veO(); } catch (e) {}
       } else {
         g3.loi = kq.loi;
         log('nhắc size: gửi HỎNG đơn ' + g.ma + ' — ' + kq.loi);
@@ -2755,48 +2844,86 @@
     })();
   }
 
-  // ---- nút ✏ Tin nhắc size (sửa câu + gửi thử trên đơn đang mở) ----
-  function nsMoSua(b) {
+  // ---- bản 9.7: "Xem chat" — mở đơn trong tab mới và tự bật khung chat với khách ----
+  function nsXemChat(id) {
+    log('nhắc size: Cao bấm Xem chat đơn ' + id);
+    try { GM_openInTab(location.origin + nsDuongDon(id) + '#xemchat', { active: true, insert: true }); }
+    catch (e) { window.open(location.origin + nsDuongDon(id) + '#xemchat', '_blank'); }
+  }
+  function nsLaTabXemChat() { return location.hash === '#xemchat' && !!nsIdTrangDon(); }
+  async function nsChayXemChat() {
+    try { await nsNghi(3000); await nsMoChatTay(); log('Xem chat: đã mở khung chat đơn ' + nsIdTrangDon()); }
+    catch (e) { log('Xem chat: chưa mở được khung chat — ' + e.message); }
+  }
+
+  // ---- bản 9.7: ⚙ Cấu hình (2 công tắc + câu tin nhắc + gửi thử) ----
+  function nsCongTac(nhan, giaiThich, bat, doi) {
+    const d = document.createElement('label');
+    d.style.cssText = 'display:flex;align-items:flex-start;gap:12px;padding:10px 12px;background:#2a2e37;border-radius:8px;cursor:pointer;margin-bottom:8px';
+    const cot = document.createElement('div'); cot.style.cssText = 'flex:1';
+    cot.innerHTML = '<div style="font-weight:700;font-size:14px"></div><div style="font-size:12px;opacity:.7;margin-top:2px"></div>';
+    cot.children[0].textContent = nhan; cot.children[1].textContent = giaiThich;
+    const sw = document.createElement('span');
+    const ve = function (on) { sw.style.background = on ? '#22c55e' : '#6b7280'; sw.firstChild.style.transform = on ? 'translateX(18px)' : 'none'; sw.title = on ? 'Đang BẬT' : 'Đang TẮT'; };
+    sw.style.cssText = 'flex:none;width:40px;height:22px;border-radius:11px;position:relative;transition:background .2s;margin-top:2px';
+    sw.innerHTML = '<span style="position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s"></span>';
+    let on = bat; ve(on);
+    d.addEventListener('click', function (e) { e.preventDefault(); on = !on; ve(on); doi(on); });
+    d.appendChild(cot); d.appendChild(sw); return d;
+  }
+  function nsMoSua() {
     let p = document.getElementById('__ns_sua');
     if (p) { p.remove(); return; }
     p = document.createElement('div');
     p.id = '__ns_sua';
-    p.style.cssText = 'position:fixed;top:14%;left:50%;transform:translateX(-50%);z-index:2147483647;width:min(640px,92vw);'
-      + 'background:#1e2128;color:#eee;border-radius:10px;padding:14px;box-shadow:0 8px 30px rgba(0,0,0,.55);font:14px/1.45 system-ui,sans-serif';
-    const s = nsSo();
-    const daGui = Object.keys(s.gui).filter((k) => s.gui[k].ok).length;
-    p.innerHTML = '<div style="font-weight:800;font-size:16px;margin-bottom:6px">✏ Tin nhắc size 108 hạt 8li</div>'
-      + '<div style="opacity:.8;font-size:12px;margin-bottom:6px">Hôm nay đã gửi ' + (s.dem || 0) + '/' + NS.TOI_DA_NGAY + ' tin · 10 ngày qua ' + daGui + ' đơn</div>';
+    p.style.cssText = 'position:fixed;top:12%;left:50%;transform:translateX(-50%);z-index:2147483647;width:min(560px,92vw);max-height:80vh;overflow:auto;box-sizing:border-box;'
+      + 'background:#1e2128;color:#eee;border-radius:12px;padding:16px 18px;box-shadow:0 10px 34px rgba(0,0,0,.55);font:14px/1.45 system-ui,"Segoe UI",sans-serif';
+    p.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+    const s = nsSo(), cfg = nsCfg();
+    const dau = document.createElement('div');
+    dau.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:12px';
+    dau.innerHTML = '<div style="font-weight:800;font-size:17px;flex:1"></div><span style="font-size:12px;font-weight:700;background:#3b3f48;border-radius:10px;padding:2px 9px"></span>';
+    dau.children[0].textContent = '⚙ Cấu hình · ' + TEN_NGAN; dau.children[1].textContent = PHIEN_BAN;
+    const x = document.createElement('button'); x.textContent = '✕'; x.title = 'Đóng';
+    x.style.cssText = 'border:0;background:transparent;color:#aaa;font-size:18px;cursor:pointer;padding:0 4px';
+    x.onclick = function () { p.remove(); }; dau.appendChild(x); p.appendChild(dau);
+    const muc = function (chu) { const m = document.createElement('div'); m.textContent = chu; m.style.cssText = 'font-size:12px;font-weight:800;letter-spacing:.4px;opacity:.6;margin:6px 0 6px;text-transform:uppercase'; p.appendChild(m); };
+    muc('Nhắc size 108 hạt 8li');
+    p.appendChild(nsCongTac('Gửi tin nhắc size cho khách', 'Tắt: script không nhắn cho khách, chỉ báo nhóm Cao hệ thống để nhắn tay.', cfg.gui, function (v) { nsCfgDat('gui', v); }));
+    p.appendChild(nsCongTac('Báo Lark khi đã gửi', 'Mỗi lần gửi xong, nhóm Cao hệ thống nhận 1 tin "💬 Đã nhắn …".', cfg.baoLark, function (v) { nsCfgDat('baoLark', v); }));
+    const tk = document.createElement('div'); tk.style.cssText = 'font-size:12px;opacity:.75;margin:2px 0 12px';
+    tk.textContent = 'Hôm nay đã gửi ' + (s.dem || 0) + '/' + NS.TOI_DA_NGAY + ' tin · 10 ngày qua ' + Object.keys(s.gui).filter(function (k) { return s.gui[k].ok; }).length + ' đơn';
+    p.appendChild(tk);
+    muc('Câu tin nhắc');
     const ta = document.createElement('textarea');
     ta.value = nsTin();
-    ta.style.cssText = 'width:100%;height:140px;box-sizing:border-box;border-radius:6px;padding:8px;font:14px/1.4 system-ui;color:#111';
+    ta.style.cssText = 'width:100%;height:120px;box-sizing:border-box;border-radius:8px;border:1px solid #3b3f48;padding:9px;font:14px/1.45 system-ui;color:#111;resize:vertical';
     p.appendChild(ta);
     const hang = document.createElement('div');
     hang.style.cssText = 'display:flex;gap:8px;margin-top:10px;flex-wrap:wrap';
     const tb = document.createElement('div');
-    tb.style.cssText = 'margin-top:8px;font-weight:700;min-height:18px';
+    tb.style.cssText = 'margin-top:10px;font-weight:700;min-height:18px;font-size:13px';
     function nut(chu, nen, lam) {
-      const x = document.createElement('button'); x.textContent = chu;
-      x.style.cssText = 'border:0;border-radius:6px;padding:7px 12px;font-weight:700;cursor:pointer;color:#fff;background:' + nen;
-      x.onclick = function (e) { e.stopPropagation(); lam(x); }; hang.appendChild(x); return x;
+      const b = document.createElement('button'); b.textContent = chu;
+      b.style.cssText = 'border:0;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;color:#fff;font-size:13px;background:' + nen;
+      b.onclick = function (e) { e.stopPropagation(); lam(b); }; hang.appendChild(b); return b;
     }
-    nut('💾 Lưu', '#14853b', function () {
+    nut('💾 Lưu câu', '#16a34a', function () {
       const v = ta.value.trim();
       if (!v) { tb.textContent = '⚠ Câu tin đang trống'; return; }
       nsSet(NS_K.tin, v); log('nhắc size: Cao sửa câu tin nhắc thành: ' + v);
       tb.textContent = '✔ Đã lưu — các đơn sau sẽ gửi câu này';
     });
-    nut('↺ Câu mặc định', '#5b5f68', function () { ta.value = NS.MAC_DINH; tb.textContent = 'Đã điền lại câu mặc định — bấm Lưu để dùng'; });
+    nut('↺ Câu mặc định', '#4b5563', function () { ta.value = NS.MAC_DINH; tb.textContent = 'Đã điền lại câu mặc định — bấm Lưu câu để dùng'; });
     const idDangMo = nsIdTrangDon();
-    if (idDangMo) nut('🧪 Gửi thử vào đơn đang mở', '#c2410c', async function (x) {
+    if (idDangMo) nut('🧪 Gửi thử vào đơn đang mở', '#c2410c', async function (b) {
       if (!confirm('Gửi THẬT câu tin này cho khách của đơn đang mở?')) return;
-      x.disabled = true; tb.textContent = '⏳ Đang gửi thử…';
+      b.disabled = true; tb.textContent = '⏳ Đang gửi thử…';
       nsSet(NS_K.job, { id: idDangMo, ma: idDangMo, tin: ta.value.trim() || nsTin(), t: Date.now(), buoc: 'mo', thu: true });
       try { const kq = await nsConGui(true); tb.textContent = kq.ok ? '✔ Đã gửi — xem trong khung chat' : '⚠ Chưa gửi được: ' + kq.loi; }
       catch (e) { tb.textContent = '⚠ ' + e.message; }
-      x.disabled = false;
+      b.disabled = false;
     });
-    nut('Đóng', '#3b3f48', function () { p.remove(); });
     p.appendChild(hang); p.appendChild(tb);
     document.body.appendChild(p);
   }
@@ -2899,9 +3026,19 @@
     if (location.pathname.indexOf('/chat') === 0) setTimeout(nsConChat, 3000);
     else setTimeout(function () { nsConGui(false); }, 4000);
   }
+  // bản 9.7: Xem chat — bấm biểu tượng chat ở "Chi tiết khách hàng" (TikTok tự mở cửa sổ chat)
+  async function nsMoChatTay() {
+    const tieuDe = await nsCho(function () { return [...document.querySelectorAll('div,span,h2,h3,p')].find(function (e) { return !e.children.length && e.textContent.trim() === 'Chi tiết khách hàng'; }); }, 30000, 'mục "Chi tiết khách hàng"');
+    let hang = tieuDe.parentElement;
+    for (let i = 0; i < 3 && hang && !hang.querySelector('svg'); i++) hang = hang.parentElement;
+    const icon = hang && [...hang.querySelectorAll('svg')].filter(function (s) { return s.getBoundingClientRect().width > 0; }).pop();
+    if (!icon) throw new Error('không thấy biểu tượng chat');
+    let bam = icon; for (let i = 0; i < 3 && bam.parentElement && !(bam.onclick || getComputedStyle(bam).cursor === 'pointer'); i++) bam = bam.parentElement;
+    bam.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  }
 
 
-  /* ---------- Bản 6.6: TỰ CẬP NHẬT từ GitHub ----------
+  /* ---------- Bản 6.7: TỰ CẬP NHẬT từ GitHub ----------
      - Tampermonkey tự tải bản mới (link @updateURL). Script chỉ: ghi nhật ký,
        báo nhóm Cao hệ thống khi máy đã lên bản mới, tải lại trang (lúc rảnh, tối đa
        1 lần/giờ) để nạp bản mới, và báo nếu sau 8 tiếng máy vẫn chưa lên bản. */
@@ -2965,5 +3102,5 @@
 
   // Bản 6.5: tab nền gửi tin nhắc size thì CHỈ làm việc đó, không canh đơn
   if (NS.BAT && nsLaTabCon()) { log('nhắc size: tab này chỉ để gửi tin'); nsChayTabCon(); }
-  else { setTimeout(khoiDong, 4000); setTimeout(nsBatDau, 8000); setTimeout(cnBatDau, 6000); }
+  else { setTimeout(khoiDong, 4000); setTimeout(nsBatDau, 8000); setTimeout(cnBatDau, 6000); if (nsLaTabXemChat()) nsChayXemChat(); }
 })();

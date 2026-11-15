@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Canh đơn THHX 🟠
 // @namespace    sonmochuong
-// @version      9.6
+// @version      9.7
 // @description  Canh đơn Shopee Trầm Hương Hà Xá → Lark: đơn hoả tốc (nhóm Hoả tốc) + đơn thường sắp quá hạn bàn giao + đơn chưa in nhãn (nhóm Quá hạn) + báo lỗi (nhóm Hệ thống), điểm danh Healthchecks
 // @match        https://banhang.shopee.vn/*
 // @match        https://accounts.shopee.vn/*
@@ -172,7 +172,7 @@
      PHẦN CẤU HÌNH
      ========================================================================== */
 
-  // Bản 9.6: link bí mật (nhóm Lark, Healthchecks) KHÔNG nằm trong bản GitHub.
+  // Bản 9.7: link bí mật (nhóm Lark, Healthchecks) KHÔNG nằm trong bản GitHub.
   // Bản cài tay có sẵn link -> cất vào máy; các bản tự cập nhật sau dùng link đã cất.
   const BI_MAT_GOC = {};
   const BI_MAT = (function () {
@@ -346,7 +346,7 @@
 
   const TEN = CAU_HINH.VIET_TAT + ' ' + CAU_HINH.TEN_SAN;
   const TEN_NGAN = CAU_HINH.VIET_TAT + ' 🟠';   // bản 9.0: tên ngắn trong tin Lark và ô trạng thái
-  const PHIEN_BAN = '9.6';
+  const PHIEN_BAN = '9.7';
   const logGoc = (...a) => console.log('%c[hoả tốc ' + TEN + ']', 'color:#f60;font-weight:bold', ...a);
   const log = (...a) => { logGoc(...a); try { nkGhiLog(a); } catch (e) {} };   // bản 9.3: kèm nhật ký 7 ngày
   const nghi = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -705,6 +705,11 @@
       if ((r = /^đã canh lại bình thường(?: \(gián đoạn khoảng (\d+) phút\))?(?: · (.+))?/.exec(nd)))
         return the('green', '✅ ' + TEN_NGAN + ' · đã canh lại' + (r[1] ? ' · gián đoạn ' + r[1] + ' phút' : '') + (r[2] ? ' (' + r[2] + ')' : ''), '', chan);
       if (/^🧪/.test(nd)) return the('blue', '🧪 ' + TEN_NGAN + ' · ' + nd.replace(/^🧪 /, ''), '', chan);
+      // bản 9.7: thẻ cho tin nhắc size / tự cập nhật
+      if ((r = /^💬 (\S+) · ([\s\S]+)$/.exec(nd))) return the('green', '💬 ' + TEN_NGAN + ' · đã nhắn nhắc size 8li', boMd(r[2]), chan, boMd(r[1]));
+      if ((r = /^✋ (\S+) · ([\s\S]+?) — ([\s\S]+)$/.exec(nd))) return the('orange', '✋ ' + TEN_NGAN + ' · cần nhắn tay size 8li', boMd(r[2] + ' — ' + r[3]), chan, boMd(r[1]));
+      if ((r = /^✅ đã tự cập nhật lên bản ([\d.]+)\s*(.*)$/.exec(nd))) return the('green', '✅ ' + TEN_NGAN + ' · đã lên ' + r[1], boMd(r[2]), chan);
+      if (/^⚠ GitHub đã có bản/.test(nd)) return the('orange', '⚠ ' + TEN_NGAN + ' · chưa tự cập nhật', boMd(nd.replace(/^⚠ /, '')), chan);
       const ds = [
         [/đăng xuất|mất phiên/, function () { return 'đăng xuất'; }],
         [/xác minh|captcha/i, function () { return 'cần xác minh'; }],
@@ -974,27 +979,80 @@
   function bamTaiNhatKy(b) {
     if (b.disabled) return;
     b.disabled = true;
-    b.textContent = '⏳ Đang tạo file…';
-    try { taiNhatKy(); b.textContent = '✔ Đã tải — thư mục Tải về'; }
-    catch (e) { b.textContent = '⚠ Không tạo được file'; log('không tải được nhật ký', e); }
-    setTimeout(function () { b.disabled = false; b.textContent = '⬇ Tải nhật ký'; }, 5000);
+    b.textContent = '⏳';
+    try { taiNhatKy(); b.textContent = '✔'; oBao('✔ Đã tải nhật ký — xem thư mục Tải về'); }
+    catch (e) { b.textContent = '⚠'; oBao('⚠ Không tạo được file nhật ký'); log('không tải được nhật ký', e); }
+    setTimeout(function () { b.disabled = false; b.textContent = '⬇'; }, 5000);
   }
+  // Bản 9.7: hàng nút gọn (phương án A) — 1 nút lớn + 3 nút biểu tượng, rê chuột hiện tên, không lẹm
   function hangNut(el, co) {
     let h = document.getElementById('__hoatoc_nut');
     if (!h) {
       h = document.createElement('div');
       h.id = '__hoatoc_nut';
-      h.appendChild(taoNutO('🔄 Tải lại trang', bamTaiLai));
-      h.appendChild(taoNutO('📋 Xem nhật ký', function () { moNhatKy(); }));
-      h.appendChild(taoNutO('⬇ Tải nhật ký', bamTaiNhatKy));
+      h.style.cssText = 'display:flex;gap:6px;margin-top:10px;align-items:stretch';
+      const lon = taoNutO('🔄 Tải lại trang', bamTaiLai);
+      lon.title = 'Tải lại trang an toàn (giữ hàng chờ tin Lark)';
+      lon.style.cssText += ';flex:1;min-width:0;background:#fff;border:0;font-size:14px;padding:7px 10px;white-space:normal;line-height:1.25';
+      h.appendChild(lon);
+      [['📋', 'Xem nhật ký 7 ngày', function () { moNhatKy(); }],
+       ['⬇', 'Tải nhật ký về máy', bamTaiNhatKy],
+       ['⚙', 'Cấu hình', moCauHinh]].forEach(function (x) {
+        const b = taoNutO(x[0], x[2]);
+        b.title = x[1];
+        b.style.cssText += ';flex:none;width:38px;padding:6px 0;font-size:16px;line-height:1;border:1px solid rgba(255,255,255,.55);background:rgba(255,255,255,.16)';
+        h.appendChild(b);
+      });
       el.appendChild(h);
     }
-    if (h._co === co) return;
-    h._co = co;
-    h.style.cssText = 'display:flex;gap:' + Math.round(co * 0.45) + 'px;margin-top:' + Math.round(co * 0.5) + 'px';
-    h.children[0].style.fontSize = Math.round(co * 1.15) + 'px';
-    h.children[0].style.flex = '2';
-    for (let i = 1; i < 3; i++) { h.children[i].style.fontSize = Math.round(co * 0.85) + 'px'; h.children[i].style.flex = '1'; }
+    h.children[0].style.color = el.style.background || '#111';   // chữ nút lớn cùng màu nền ô
+  }
+  // ⚙ Cấu hình: script có nhắc size thì mở hộp cấu hình đầy đủ; không thì hộp thông tin gọn
+  function moCauHinh() {
+    if (typeof nsMoSua === 'function') { nsMoSua(); return; }
+    let p = document.getElementById('__cfg_hop');
+    if (p) { p.remove(); return; }
+    p = document.createElement('div'); p.id = '__cfg_hop';
+    p.style.cssText = 'position:fixed;top:12%;left:50%;transform:translateX(-50%);z-index:2147483647;width:min(420px,92vw);box-sizing:border-box;'
+      + 'background:#1e2128;color:#eee;border-radius:12px;padding:16px 18px;box-shadow:0 10px 34px rgba(0,0,0,.55);font:14px/1.5 system-ui,"Segoe UI",sans-serif';
+    p.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+    p.innerHTML = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><div style="font-weight:800;font-size:17px;flex:1"></div>'
+      + '<span style="font-size:12px;font-weight:700;background:#3b3f48;border-radius:10px;padding:2px 9px"></span></div>'
+      + '<div style="opacity:.8">Script này chưa có mục nào cần cấu hình. Bản mới tự cập nhật từ GitHub (Tampermonkey kiểm tra mỗi 6 giờ).</div>'
+      + '<div style="text-align:right;margin-top:12px"><button style="border:0;border-radius:8px;padding:8px 16px;font-weight:700;cursor:pointer;color:#fff;background:#4b5563">Đóng</button></div>';
+    p.querySelector('div div').textContent = '⚙ Cấu hình · ' + TEN_NGAN;
+    p.querySelector('div span').textContent = PHIEN_BAN;
+    p.querySelector('button').onclick = function () { p.remove(); };
+    document.body.appendChild(p);
+  }
+  // dòng báo ngắn trong ô (VD "✔ Đã tải nhật ký") tự ẩn sau 6 giây
+  function oBao(chu) { O.bao = { chu: chu, t: Date.now() }; try { veO(); } catch (e) {} }
+  // dòng nhắc size (chỉ script có nhắc size) — chỉ vẽ lại khi nội dung đổi, để nút "Xem chat" bấm được
+  function veDongNhacSize(el) {
+    if (typeof nsCuoi !== 'function') return;
+    let d = document.getElementById('__hoatoc_ns');
+    const h = document.getElementById('__hoatoc_nut');
+    if (!d) { d = document.createElement('div'); d.id = '__hoatoc_ns'; el.insertBefore(d, h); }
+    else if (d.nextSibling !== h) el.insertBefore(d, h);
+    const c = nsCuoi(), cfg = nsCfg();
+    let chu, id = '';
+    if (!cfg.gui) chu = '✋ Đang TẮT tự gửi nhắc size — đơn mới sẽ báo Lark để nhắn tay';
+    else if (c.cuoi) {
+      const t = new Date(c.cuoi.t), homNay = new Date().toDateString() === t.toDateString();
+      chu = '💬 Đã nhắn ' + c.cuoi.ma + ' · ' + (homNay ? '' : hai(t.getDate()) + '/' + hai(t.getMonth() + 1) + ' ') + hai(t.getHours()) + ':' + hai(t.getMinutes()) + ' · hôm nay ' + c.dem + '/' + c.toiDa;
+      id = c.cuoi.id;
+    } else chu = '💬 Nhắc size 8li · hôm nay ' + c.dem + '/' + c.toiDa + ' · chưa có đơn nào';
+    const khoa = chu + '|' + id;
+    if (d._khoa === khoa) return;
+    d._khoa = khoa; d.textContent = '';
+    d.style.cssText = 'margin-top:8px;background:rgba(0,0,0,.18);border-radius:8px;padding:6px 8px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;line-height:1.3';
+    const tx = document.createElement('span'); tx.style.cssText = 'flex:1;min-width:0'; tx.textContent = chu; d.appendChild(tx);
+    if (id) {
+      const b = taoNutO('Xem chat', function () { nsXemChat(id); });
+      b.title = 'Mở đơn ' + c.cuoi.ma + ' và bật khung chat với khách';
+      b.style.cssText += ';flex:none;background:#fff;color:#14532d;border:0;font-size:12px;padding:3px 10px';
+      d.appendChild(b);
+    }
   }
 
   function themCssNhay() {
@@ -1090,8 +1148,9 @@
       if (dau === '✖' || dau === '⚠') chiTiet += ghiChuTuSua() + (tonDong ? ' · ⚠ ' + soTinTonDong + ' tin chưa gửi' : '');
 
       el.style.background = nen;
-      el.style.padding = Math.round(co * 0.5) + 'px ' + Math.round(co * 0.9) + 'px';
-      el.style.maxWidth = Math.round((window.innerWidth || 1200) * 0.46) + 'px';
+      el.style.padding = '12px 14px';   // bản 9.7: thẻ rộng cố định, không lẹm
+      el.style.boxSizing = 'border-box';
+      el.style.width = Math.min(420, (window.innerWidth || 1200) - 24) + 'px';
       el.style.animation = (coDon && CAU_HINH.NHAP_NHAY_KHI_CO_DON) ? 'hoatocNhay 0.9s ease-in-out infinite' : 'none';
       el.style.filter = O.sang ? 'brightness(1)' : 'brightness(.62)';
 
@@ -1100,16 +1159,28 @@
       nd.textContent = '';
       hangNut(el, co);
       const t1 = document.createElement('div');
-      t1.style.cssText = 'font-weight:900;font-size:' + Math.round(co * (coDon ? 1.6 : 1.3))
-        + 'px;line-height:1.15;letter-spacing:.2px;white-space:nowrap';
-      t1.textContent = dau + ' ' + nhan;
+      t1.style.cssText = 'display:flex;align-items:center;gap:8px;font-weight:800;font-size:' + (coDon ? 21 : 18) + 'px;line-height:1.2';
+      const tt = document.createElement('span');
+      tt.style.cssText = 'flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+      tt.textContent = dau + ' ' + nhan; tt.title = dau + ' ' + nhan;
+      const vb = document.createElement('span');
+      vb.textContent = PHIEN_BAN; vb.title = 'Phiên bản đang chạy';
+      vb.style.cssText = 'flex:none;font-size:12px;font-weight:700;background:rgba(255,255,255,.22);border-radius:10px;padding:1px 8px';
+      t1.appendChild(tt); t1.appendChild(vb);
       nd.appendChild(t1);
       if (chiTiet) {
         const t2 = document.createElement('div');
-        t2.style.cssText = 'font-weight:600;font-size:' + co + 'px;margin-top:' + Math.round(co * 0.2) + 'px;opacity:.95;line-height:1.3';
+        t2.style.cssText = 'font-weight:600;font-size:13px;margin-top:3px;opacity:.92;line-height:1.35;overflow-wrap:anywhere';
         t2.textContent = chiTiet.replace(/^\d\d:\d\d:\d\d — /, '');
         nd.appendChild(t2);
       }
+      if (O.bao && Date.now() - O.bao.t < 6000) {
+        const t3 = document.createElement('div');
+        t3.style.cssText = 'font-weight:700;font-size:12px;margin-top:4px';
+        t3.textContent = O.bao.chu;
+        nd.appendChild(t3);
+      }
+      veDongNhacSize(el);
       datTenTab(dau);
     } catch (e) { /* trang chưa sẵn sàng */ }
   }
@@ -2530,7 +2601,7 @@
   }
 
 
-  /* ---------- Bản 9.6: TỰ CẬP NHẬT từ GitHub ----------
+  /* ---------- Bản 9.7: TỰ CẬP NHẬT từ GitHub ----------
      - Tampermonkey tự tải bản mới (link @updateURL). Script chỉ: ghi nhật ký,
        báo nhóm Cao hệ thống khi máy đã lên bản mới, tải lại trang (lúc rảnh, tối đa
        1 lần/giờ) để nạp bản mới, và báo nếu sau 8 tiếng máy vẫn chưa lên bản. */
@@ -2593,5 +2664,5 @@
   }
 
   setTimeout(khoiDong, 4000);
-  setTimeout(cnBatDau, 6000);   // bản 9.6: tự cập nhật
+  setTimeout(cnBatDau, 6000);   // bản 9.7: tự cập nhật
 })();
