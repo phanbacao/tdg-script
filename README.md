@@ -4,12 +4,12 @@ Các script Tampermonkey dùng trong TDG. Tampermonkey trên mỗi máy **tự c
 
 **Cài trên máy mới:** cài tiện ích Tampermonkey → bấm link trong cột "Cài" → bấm **Cài đặt**. Riêng 4 script canh đơn: lần đầu phải cài **bản cài tay** Claude gửi (có sẵn link nhóm Lark), vì bản trên đây không chứa link bí mật.
 
-Cập nhật lần cuối: 15/11/2026
+Cập nhật lần cuối: 19/11/2026
 
 | Việc | Script | Bản | Ngày | Máy dùng | Cài | Thay đổi gần nhất |
 |---|---|---|---|---|---|---|
-| Canh đơn | Canh đơn SMH 🟠 (Shopee) | 9.7 | 15/11/2026 | Máy canh đơn | [cài](https://raw.githubusercontent.com/phanbacao/tdg-script/main/canh-don/shopee-SMH.user.js) | Thẻ trạng thái mới (gọn, không lẹm, hiện số bản); ⚙ Cấu hình: bật/tắt gửi nhắc size + báo Lark; dòng "Đã nhắn …" + Xem chat |
-| Canh đơn | Canh đơn SMH ⚫ (TikTok) | 6.7 | 15/11/2026 | Máy canh đơn | [cài](https://raw.githubusercontent.com/phanbacao/tdg-script/main/canh-don/tiktok-SMH.user.js) | Thẻ trạng thái mới (gọn, không lẹm, hiện số bản); ⚙ Cấu hình: bật/tắt gửi nhắc size + báo Lark; dòng "Đã nhắn …" + Xem chat |
+| Canh đơn | Canh đơn SMH 🟠 (Shopee) | 9.7.1 | 19/11/2026 | Máy canh đơn | [cài](https://raw.githubusercontent.com/phanbacao/tdg-script/main/canh-don/shopee-SMH.user.js) | Nhắc size: mở tab gửi hiện hẳn, không còn báo ❌ nhầm khi tin đã gửi |
+| Canh đơn | Canh đơn SMH ⚫ (TikTok) | 6.7.1 | 19/11/2026 | Máy canh đơn | [cài](https://raw.githubusercontent.com/phanbacao/tdg-script/main/canh-don/tiktok-SMH.user.js) | Nhắc size: mở tab gửi hiện hẳn, không còn báo ❌ nhầm khi tin đã gửi |
 | Canh đơn | Canh đơn THHX 🟠 (Shopee) | 9.7 | 15/11/2026 | Máy canh đơn | [cài](https://raw.githubusercontent.com/phanbacao/tdg-script/main/canh-don/shopee-THHX.user.js) | Thẻ trạng thái mới (gọn, không lẹm, hiện số bản) |
 | Canh đơn | Canh đơn THHX ⚫ (TikTok) | 6.7 | 15/11/2026 | Máy canh đơn | [cài](https://raw.githubusercontent.com/phanbacao/tdg-script/main/canh-don/tiktok-THHX.user.js) | Thẻ trạng thái mới (gọn, không lẹm, hiện số bản) |
 | In đơn | Smh in don shopee | 8.8.1 | 15/11/2026 | Máy Cao | [cài](https://raw.githubusercontent.com/phanbacao/tdg-script/main/in-don/shopee.user.js) | Hiện tên script · số bản ở chân popup |
