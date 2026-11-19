@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Canh đơn SMH 🟠
 // @namespace    sonmochuong
-// @version      9.7.1
+// @version      9.7.2
 // @description  Canh đơn Shopee Sơn Mộc Hương → Lark: đơn hoả tốc (nhóm Hoả tốc) + đơn thường sắp quá hạn bàn giao + đơn chưa in nhãn (nhóm Quá hạn) + báo lỗi (nhóm Hệ thống), điểm danh Healthchecks
 // @match        https://banhang.shopee.vn/*
 // @match        https://accounts.shopee.vn/*
@@ -181,7 +181,7 @@
      PHẦN CẤU HÌNH
      ========================================================================== */
 
-  // Bản 9.7.1: link bí mật (nhóm Lark, Healthchecks) KHÔNG nằm trong bản GitHub.
+  // Bản 9.7.2: link bí mật (nhóm Lark, Healthchecks) KHÔNG nằm trong bản GitHub.
   // Bản cài tay có sẵn link -> cất vào máy; các bản tự cập nhật sau dùng link đã cất.
   const BI_MAT_GOC = {};
   const BI_MAT = (function () {
@@ -355,7 +355,7 @@
 
   const TEN = CAU_HINH.VIET_TAT + ' ' + CAU_HINH.TEN_SAN;
   const TEN_NGAN = CAU_HINH.VIET_TAT + ' 🟠';   // bản 9.0: tên ngắn trong tin Lark và ô trạng thái
-  const PHIEN_BAN = '9.7.1';
+  const PHIEN_BAN = '9.7.2';
   const logGoc = (...a) => console.log('%c[hoả tốc ' + TEN + ']', 'color:#f60;font-weight:bold', ...a);
   const log = (...a) => { logGoc(...a); try { nkGhiLog(a); } catch (e) {} };   // bản 9.3: kèm nhật ký 7 ngày
   const nghi = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -714,9 +714,13 @@
       if ((r = /^đã canh lại bình thường(?: \(gián đoạn khoảng (\d+) phút\))?(?: · (.+))?/.exec(nd)))
         return the('green', '✅ ' + TEN_NGAN + ' · đã canh lại' + (r[1] ? ' · gián đoạn ' + r[1] + ' phút' : '') + (r[2] ? ' (' + r[2] + ')' : ''), '', chan);
       if (/^🧪/.test(nd)) return the('blue', '🧪 ' + TEN_NGAN + ' · ' + nd.replace(/^🧪 /, ''), '', chan);
-      // bản 9.7.1: thẻ cho tin nhắc size / tự cập nhật
-      if ((r = /^💬 (\S+) · ([\s\S]+)$/.exec(nd))) return the('green', '💬 ' + TEN_NGAN + ' · đã nhắn nhắc size 8li', boMd(r[2]), chan, boMd(r[1]));
-      if ((r = /^✋ (\S+) · ([\s\S]+?) — ([\s\S]+)$/.exec(nd))) return the('orange', '✋ ' + TEN_NGAN + ' · cần nhắn tay size 8li', boMd(r[2] + ' — ' + r[3]), chan, boMd(r[1]));
+      // bản 9.7.2: thẻ cho tin nhắc size / tự cập nhật
+      // bản 9.7.2: tin nhắc size là tin PHỤ -> tiêu đề riêng "… · Shop SMH Shopee", không dùng ❌/tên ngắn như tin lỗi quan trọng
+      const shopNs = 'Shop ' + CAU_HINH.VIET_TAT + ' ' + CAU_HINH.TEN_SAN;
+      if ((r = /^💬 (\S+) · ([\s\S]+)$/.exec(nd))) return the('green', '💬 Đã nhắn nhắc size 8li · ' + shopNs, boMd(r[2]), chan, boMd(r[1]));
+      if ((r = /^✋ (\S+) · ([\s\S]+?) — ([\s\S]+)$/.exec(nd))) return the('yellow', '✋ Nhắc size 8li cần nhắn tay · ' + shopNs, boMd(r[2] + ' — ' + r[3]), chan, boMd(r[1]));
+      if ((r = /^nhắc size 8li: chưa gửi được tin cho đơn (\S+) \(([\s\S]+?)\)\. Cần nhắn tay cho khách: ([\s\S]+)$/.exec(nd)))
+        return the('yellow', '💬 Nhắc size 8li chưa được gửi · ' + shopNs, boMd('Lý do: ' + r[2] + '\nCần nhắn tay cho khách: ' + r[3]), chan, boMd(r[1]));
       if ((r = /^✅ đã tự cập nhật lên bản ([\d.]+)\s*(.*)$/.exec(nd))) return the('green', '✅ ' + TEN_NGAN + ' · đã lên ' + r[1], boMd(r[2]), chan);
       if (/^⚠ GitHub đã có bản/.test(nd)) return the('orange', '⚠ ' + TEN_NGAN + ' · chưa tự cập nhật', boMd(nd.replace(/^⚠ /, '')), chan);
       const ds = [
@@ -993,7 +997,7 @@
     catch (e) { b.textContent = '⚠'; oBao('⚠ Không tạo được file nhật ký'); log('không tải được nhật ký', e); }
     setTimeout(function () { b.disabled = false; b.textContent = '⬇'; }, 5000);
   }
-  // Bản 9.7.1: hàng nút gọn (phương án A) — 1 nút lớn + 3 nút biểu tượng, rê chuột hiện tên, không lẹm
+  // Bản 9.7.2: hàng nút gọn (phương án A) — 1 nút lớn + 3 nút biểu tượng, rê chuột hiện tên, không lẹm
   function hangNut(el, co) {
     let h = document.getElementById('__hoatoc_nut');
     if (!h) {
@@ -1157,7 +1161,7 @@
       if (dau === '✖' || dau === '⚠') chiTiet += ghiChuTuSua() + (tonDong ? ' · ⚠ ' + soTinTonDong + ' tin chưa gửi' : '');
 
       el.style.background = nen;
-      el.style.padding = '12px 14px';   // bản 9.7.1: thẻ rộng cố định, không lẹm
+      el.style.padding = '12px 14px';   // bản 9.7.2: thẻ rộng cố định, không lẹm
       el.style.boxSizing = 'border-box';
       el.style.width = Math.min(420, (window.innerWidth || 1200) - 24) + 'px';
       el.style.animation = (coDon && CAU_HINH.NHAP_NHAY_KHI_CO_DON) ? 'hoatocNhay 0.9s ease-in-out infinite' : 'none';
@@ -1190,6 +1194,16 @@
         nd.appendChild(t3);
       }
       veDongNhacSize(el);
+      // bản 9.7.2: GitHub có bản mới quá 8 tiếng mà máy chưa lên -> ghi đỏ ngay trên thẻ
+      try {
+        const th = JSON.parse(GM_getValue('cn_thay', '') || '{}');
+        if (th.ban && cnCuHon(PHIEN_BAN, th.ban) && Date.now() - th.t >= 8 * 3600000) {
+          const t4 = document.createElement('div');
+          t4.style.cssText = 'margin-top:6px;background:#fff;color:#b91c1c;border-radius:8px;padding:5px 8px;font-size:12px;font-weight:800;line-height:1.3';
+          t4.textContent = '⚠ Có bản ' + th.ban + ' trên GitHub — máy chưa tự cập nhật → Tampermonkey › Kiểm tra cập nhật';
+          nd.appendChild(t4);
+        }
+      } catch (e) {}
       datTenTab(dau);
     } catch (e) { /* trang chưa sẵn sàng */ }
   }
@@ -2956,7 +2970,7 @@
   }
 
 
-  /* ---------- Bản 9.7.1: TỰ CẬP NHẬT từ GitHub ----------
+  /* ---------- Bản 9.7.2: TỰ CẬP NHẬT từ GitHub ----------
      - Tampermonkey tự tải bản mới (link @updateURL). Script chỉ: ghi nhật ký,
        báo nhóm Cao hệ thống khi máy đã lên bản mới, tải lại trang (lúc rảnh, tối đa
        1 lần/giờ) để nạp bản mới, và báo nếu sau 8 tiếng máy vẫn chưa lên bản. */
