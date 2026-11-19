@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Canh đơn SMH ⚫
 // @namespace    sonmochuong
-// @version      6.7
+// @version      6.7.1
 // @description  Canh đơn TikTok Sơn Mộc Hương → Lark: đơn hoả tốc (nhóm Hoả tốc) + đơn thường sắp quá hạn bàn giao (nhóm Quá hạn) + báo lỗi (nhóm Hệ thống), điểm danh Healthchecks
 // @match        https://seller-vn.tiktok.com/*
 // @grant        GM_xmlhttpRequest
@@ -218,7 +218,7 @@
      PHẦN CẤU HÌNH
      ========================================================================== */
 
-  // Bản 6.7: link bí mật (nhóm Lark, Healthchecks) KHÔNG nằm trong bản GitHub.
+  // Bản 6.7.1: link bí mật (nhóm Lark, Healthchecks) KHÔNG nằm trong bản GitHub.
   // Bản cài tay có sẵn link -> cất vào máy; các bản tự cập nhật sau dùng link đã cất.
   const BI_MAT_GOC = {};
   const BI_MAT = (function () {
@@ -419,7 +419,7 @@
 
   const TEN = CAU_HINH.VIET_TAT + ' ' + CAU_HINH.TEN_SAN;
   const TEN_NGAN = CAU_HINH.VIET_TAT + ' ⚫';   // bản 6.0: tên ngắn trong tin Lark và ô trạng thái
-  const PHIEN_BAN = '6.7';
+  const PHIEN_BAN = '6.7.1';
   const logGoc = (...a) => console.log('%c[hoả tốc ' + TEN + ']', 'color:#0a8;font-weight:bold', ...a);
   const log = (...a) => { logGoc(...a); try { nkGhiLog(a); } catch (e) {} };   // bản 6.3: kèm nhật ký 7 ngày
   const nghi = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -780,7 +780,7 @@
       if ((r = /^đã canh lại bình thường(?: \(gián đoạn khoảng (\d+) phút\))?(?: · (.+))?/.exec(nd)))
         return the('green', '✅ ' + TEN_NGAN + ' · đã canh lại' + (r[1] ? ' · gián đoạn ' + r[1] + ' phút' : '') + (r[2] ? ' (' + r[2] + ')' : ''), '', chan);
       if (/^🧪/.test(nd)) return the('blue', '🧪 ' + TEN_NGAN + ' · ' + nd.replace(/^🧪 /, ''), '', chan);
-      // bản 6.7: thẻ cho tin nhắc size / tự cập nhật
+      // bản 6.7.1: thẻ cho tin nhắc size / tự cập nhật
       if ((r = /^💬 (\S+) · ([\s\S]+)$/.exec(nd))) return the('green', '💬 ' + TEN_NGAN + ' · đã nhắn nhắc size 8li', boMd(r[2]), chan, boMd(r[1]));
       if ((r = /^✋ (\S+) · ([\s\S]+?) — ([\s\S]+)$/.exec(nd))) return the('orange', '✋ ' + TEN_NGAN + ' · cần nhắn tay size 8li', boMd(r[2] + ' — ' + r[3]), chan, boMd(r[1]));
       if ((r = /^✅ đã tự cập nhật lên bản ([\d.]+)\s*(.*)$/.exec(nd))) return the('green', '✅ ' + TEN_NGAN + ' · đã lên ' + r[1], boMd(r[2]), chan);
@@ -1063,7 +1063,7 @@
     catch (e) { b.textContent = '⚠'; oBao('⚠ Không tạo được file nhật ký'); log('không tải được nhật ký', e); }
     setTimeout(function () { b.disabled = false; b.textContent = '⬇'; }, 5000);
   }
-  // Bản 6.7: hàng nút gọn (phương án A) — 1 nút lớn + 3 nút biểu tượng, rê chuột hiện tên, không lẹm
+  // Bản 6.7.1: hàng nút gọn (phương án A) — 1 nút lớn + 3 nút biểu tượng, rê chuột hiện tên, không lẹm
   function hangNut(el, co) {
     let h = document.getElementById('__hoatoc_nut');
     if (!h) {
@@ -1230,7 +1230,7 @@
       if (dau === '✖' || dau === '⚠') chiTiet += ghiChuTuSua() + (tonDong ? ' · ⚠ ' + soTinTonDong + ' tin chưa gửi' : '');
 
       el.style.background = nen;
-      el.style.padding = '12px 14px';   // bản 6.7: thẻ rộng cố định, không lẹm
+      el.style.padding = '12px 14px';   // bản 6.7.1: thẻ rộng cố định, không lẹm
       el.style.boxSizing = 'border-box';
       el.style.width = Math.min(420, (window.innerWidth || 1200) - 24) + 'px';
       el.style.animation = (coDon && CAU_HINH.NHAP_NHAY_KHI_CO_DON) ? 'hoatocNhay 0.9s ease-in-out infinite' : 'none';
@@ -2824,7 +2824,8 @@
       nsSet(NS_K.kq, {});
       nsSet(NS_K.job, { id: String(id), ma: ma, tin: nsTin(), t: Date.now(), buoc: 'mo' });
       let tab = null;
-      try { tab = GM_openInTab(location.origin + nsDuongDon(id) + '#nhacsize', { active: false, insert: true, setParent: true }); }
+      // bản 9.7.1: mở tab HIỆN HẲN (tab ngầm Chrome không vẽ khung chat -> tưởng chưa gửi); gửi xong tự đóng, quay về tab canh đơn
+      try { tab = GM_openInTab(location.origin + nsDuongDon(id) + '#nhacsize', { active: true, insert: true, setParent: true }); }
       catch (e) { xong({ ok: false, loi: 'không mở được tab nền: ' + e.message }); return; }
       const t0 = Date.now();
       (function doi() {
@@ -3006,15 +3007,17 @@
       const idUrl = new URLSearchParams(location.search).get('orderId') || '';
       if (idUrl && idUrl !== job.id) return xong(false, 'trang chat mở cho đơn khác (' + idUrl + ')');
       const ta = await nsCho(function () { return [...document.querySelectorAll('textarea')].find(function (t) { return t.getBoundingClientRect().width > 0 && !t.disabled; }); }, 40000, 'ô nhập tin nhắn');
-      await nsNghi(4000);   // chờ tải tin cũ để kiểm trùng
+      await nsNghi(6000);   // chờ tải tin cũ để kiểm trùng (bản 6.7.1: lâu hơn)
       const sn = nsSnip(job.tin);
       if (nsChuTrang().indexOf(sn) !== -1) return xong(true, 'câu này đã có sẵn trong khung chat, không gửi lại');
       nsDatChu(ta, job.tin);
       await nsNghi(700);
       const nut = await nsCho(function () { return [...document.querySelectorAll('button')].find(function (b) { return b.textContent.trim() === 'Gửi' && !b.disabled && b.getBoundingClientRect().width > 0; }); }, 8000, 'nút "Gửi"');
       nut.click();
-      await nsCho(function () { return ta.value.trim() === '' && nsChuTrang().indexOf(sn) !== -1; }, 12000, 'tin vừa gửi hiện trong khung chat');
-      xong(true, '');
+      // bản 6.7.1: ô nhập trống lại = đã gửi; chờ thêm tới 20 giây để thấy tin hiện
+      await nsCho(function () { return ta.value.trim() === ''; }, 12000, 'ô nhập trống sau khi bấm Gửi');
+      try { await nsCho(function () { return nsChuTrang().indexOf(sn) !== -1; }, 20000, 'tin hiện'); xong(true, ''); }
+      catch (e) { log('nhắc size: ô nhập đã trống (đã gửi) nhưng 20 giây chưa thấy tin hiện'); xong(true, 'ô nhập đã trống, chưa thấy tin hiện'); }
     } catch (e) { xong(false, e.message); }
   }
   function nsLaTabCon() {
@@ -3038,7 +3041,7 @@
   }
 
 
-  /* ---------- Bản 6.7: TỰ CẬP NHẬT từ GitHub ----------
+  /* ---------- Bản 6.7.1: TỰ CẬP NHẬT từ GitHub ----------
      - Tampermonkey tự tải bản mới (link @updateURL). Script chỉ: ghi nhật ký,
        báo nhóm Cao hệ thống khi máy đã lên bản mới, tải lại trang (lúc rảnh, tối đa
        1 lần/giờ) để nạp bản mới, và báo nếu sau 8 tiếng máy vẫn chưa lên bản. */

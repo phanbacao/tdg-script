@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Canh đơn SMH 🟠
 // @namespace    sonmochuong
-// @version      9.7
+// @version      9.7.1
 // @description  Canh đơn Shopee Sơn Mộc Hương → Lark: đơn hoả tốc (nhóm Hoả tốc) + đơn thường sắp quá hạn bàn giao + đơn chưa in nhãn (nhóm Quá hạn) + báo lỗi (nhóm Hệ thống), điểm danh Healthchecks
 // @match        https://banhang.shopee.vn/*
 // @match        https://accounts.shopee.vn/*
@@ -181,7 +181,7 @@
      PHẦN CẤU HÌNH
      ========================================================================== */
 
-  // Bản 9.7: link bí mật (nhóm Lark, Healthchecks) KHÔNG nằm trong bản GitHub.
+  // Bản 9.7.1: link bí mật (nhóm Lark, Healthchecks) KHÔNG nằm trong bản GitHub.
   // Bản cài tay có sẵn link -> cất vào máy; các bản tự cập nhật sau dùng link đã cất.
   const BI_MAT_GOC = {};
   const BI_MAT = (function () {
@@ -355,7 +355,7 @@
 
   const TEN = CAU_HINH.VIET_TAT + ' ' + CAU_HINH.TEN_SAN;
   const TEN_NGAN = CAU_HINH.VIET_TAT + ' 🟠';   // bản 9.0: tên ngắn trong tin Lark và ô trạng thái
-  const PHIEN_BAN = '9.7';
+  const PHIEN_BAN = '9.7.1';
   const logGoc = (...a) => console.log('%c[hoả tốc ' + TEN + ']', 'color:#f60;font-weight:bold', ...a);
   const log = (...a) => { logGoc(...a); try { nkGhiLog(a); } catch (e) {} };   // bản 9.3: kèm nhật ký 7 ngày
   const nghi = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -714,7 +714,7 @@
       if ((r = /^đã canh lại bình thường(?: \(gián đoạn khoảng (\d+) phút\))?(?: · (.+))?/.exec(nd)))
         return the('green', '✅ ' + TEN_NGAN + ' · đã canh lại' + (r[1] ? ' · gián đoạn ' + r[1] + ' phút' : '') + (r[2] ? ' (' + r[2] + ')' : ''), '', chan);
       if (/^🧪/.test(nd)) return the('blue', '🧪 ' + TEN_NGAN + ' · ' + nd.replace(/^🧪 /, ''), '', chan);
-      // bản 9.7: thẻ cho tin nhắc size / tự cập nhật
+      // bản 9.7.1: thẻ cho tin nhắc size / tự cập nhật
       if ((r = /^💬 (\S+) · ([\s\S]+)$/.exec(nd))) return the('green', '💬 ' + TEN_NGAN + ' · đã nhắn nhắc size 8li', boMd(r[2]), chan, boMd(r[1]));
       if ((r = /^✋ (\S+) · ([\s\S]+?) — ([\s\S]+)$/.exec(nd))) return the('orange', '✋ ' + TEN_NGAN + ' · cần nhắn tay size 8li', boMd(r[2] + ' — ' + r[3]), chan, boMd(r[1]));
       if ((r = /^✅ đã tự cập nhật lên bản ([\d.]+)\s*(.*)$/.exec(nd))) return the('green', '✅ ' + TEN_NGAN + ' · đã lên ' + r[1], boMd(r[2]), chan);
@@ -993,7 +993,7 @@
     catch (e) { b.textContent = '⚠'; oBao('⚠ Không tạo được file nhật ký'); log('không tải được nhật ký', e); }
     setTimeout(function () { b.disabled = false; b.textContent = '⬇'; }, 5000);
   }
-  // Bản 9.7: hàng nút gọn (phương án A) — 1 nút lớn + 3 nút biểu tượng, rê chuột hiện tên, không lẹm
+  // Bản 9.7.1: hàng nút gọn (phương án A) — 1 nút lớn + 3 nút biểu tượng, rê chuột hiện tên, không lẹm
   function hangNut(el, co) {
     let h = document.getElementById('__hoatoc_nut');
     if (!h) {
@@ -1157,7 +1157,7 @@
       if (dau === '✖' || dau === '⚠') chiTiet += ghiChuTuSua() + (tonDong ? ' · ⚠ ' + soTinTonDong + ' tin chưa gửi' : '');
 
       el.style.background = nen;
-      el.style.padding = '12px 14px';   // bản 9.7: thẻ rộng cố định, không lẹm
+      el.style.padding = '12px 14px';   // bản 9.7.1: thẻ rộng cố định, không lẹm
       el.style.boxSizing = 'border-box';
       el.style.width = Math.min(420, (window.innerWidth || 1200) - 24) + 'px';
       el.style.animation = (coDon && CAU_HINH.NHAP_NHAY_KHI_CO_DON) ? 'hoatocNhay 0.9s ease-in-out infinite' : 'none';
@@ -2740,7 +2740,8 @@
       nsSet(NS_K.kq, {});
       nsSet(NS_K.job, { id: String(id), ma: ma, tin: nsTin(), t: Date.now(), buoc: 'mo' });
       let tab = null;
-      try { tab = GM_openInTab(location.origin + nsDuongDon(id) + '#nhacsize', { active: false, insert: true, setParent: true }); }
+      // bản 9.7.1: mở tab HIỆN HẲN (tab ngầm Chrome không vẽ khung chat -> tưởng chưa gửi); gửi xong tự đóng, quay về tab canh đơn
+      try { tab = GM_openInTab(location.origin + nsDuongDon(id) + '#nhacsize', { active: true, insert: true, setParent: true }); }
       catch (e) { xong({ ok: false, loi: 'không mở được tab nền: ' + e.message }); return; }
       const t0 = Date.now();
       (function doi() {
@@ -2916,22 +2917,30 @@
       } else log('nhắc size: ô chat đang ở "' + che.textContent.trim() + '" — gửi luôn');
       let ta = document.querySelector('textarea[placeholder="Nhập nội dung tin nhắn"]');
       if (!ta) { nutChat.click(); ta = await nsCho(function () { return document.querySelector('textarea[placeholder="Nhập nội dung tin nhắn"]'); }, 25000, 'ô nhập tin nhắn'); }
-      await nsNghi(3000);   // chờ tải tin cũ để kiểm trùng
+      // bản 9.7.1: chờ khung chat tải xong lịch sử (thấy thẻ đơn "ID Đơn hàng") rồi mới kiểm trùng
+      try { await nsCho(function () { return /ID Đơn hàng|Bạn đang trao đổi/.test(nsChuTrang()); }, 15000, 'thẻ đơn trong khung chat'); }
+      catch (e) { log('nhắc size: chưa thấy thẻ đơn trong khung chat sau 15 giây — vẫn kiểm trùng rồi gửi'); }
+      await nsNghi(2500);
       const sn = nsSnip(job.tin);
       if (nsChuTrang().indexOf(sn) !== -1) return xong(true, 'câu này đã có sẵn trong khung chat, không gửi lại');
       nsDatChu(ta, job.tin);
       await nsNghi(600);
       ta.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
-      const daGui = function () { return ta.value.trim() === '' && nsChuTrang().indexOf(sn) !== -1; };
-      try { await nsCho(daGui, 5000, 'tin vừa gửi'); return xong(true, ''); } catch (e) {}
+      // bản 9.7.1: ô nhập trống lại = đã gửi; sau đó chờ thêm tới 20 giây để thấy tin hiện trong khung chat
+      const oTrong = function () { return ta.value.trim() === ''; };
+      const thayTin = async function () {
+        try { await nsCho(function () { return nsChuTrang().indexOf(sn) !== -1; }, 20000, 'tin hiện'); return xong(true, ''); }
+        catch (e) { log('nhắc size: ô nhập đã trống (đã gửi) nhưng 20 giây chưa thấy tin hiện trong khung chat'); return xong(true, 'ô nhập đã trống, chưa thấy tin hiện'); }
+      };
+      try { await nsCho(oTrong, 6000, 'ô nhập trống'); return await thayTin(); } catch (e) {}
       // dự phòng: bấm biểu tượng gửi ở góc phải ô nhập
       const r = ta.getBoundingClientRect();
       let khung = ta; for (let i = 0; i < 4 && khung.parentElement; i++) khung = khung.parentElement;
       const icon = [...khung.querySelectorAll('i,svg,button')].filter(function (e) { const b = e.getBoundingClientRect(); return b.width > 0 && b.left >= r.right - 60 && b.top >= r.top - 40; })
         .sort(function (a, b) { return b.getBoundingClientRect().left - a.getBoundingClientRect().left; })[0];
       if (icon) { log('nhắc size: Enter chưa gửi, thử bấm biểu tượng gửi'); icon.dispatchEvent(new MouseEvent('click', { bubbles: true })); }
-      await nsCho(daGui, 10000, 'tin vừa gửi hiện trong khung chat');
-      return xong(true, '');
+      await nsCho(oTrong, 10000, 'ô nhập trống sau khi bấm gửi');
+      return await thayTin();
     } catch (e) { return xong(false, e.message); }
   }
   function nsLaTabCon() {
@@ -2947,7 +2956,7 @@
   }
 
 
-  /* ---------- Bản 9.7: TỰ CẬP NHẬT từ GitHub ----------
+  /* ---------- Bản 9.7.1: TỰ CẬP NHẬT từ GitHub ----------
      - Tampermonkey tự tải bản mới (link @updateURL). Script chỉ: ghi nhật ký,
        báo nhóm Cao hệ thống khi máy đã lên bản mới, tải lại trang (lúc rảnh, tối đa
        1 lần/giờ) để nạp bản mới, và báo nếu sau 8 tiếng máy vẫn chưa lên bản. */
