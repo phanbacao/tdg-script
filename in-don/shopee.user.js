@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Smh in don shopee
 // @namespace    sonmochuong.print
-// @version      8.8.1
+// @version      8.8.2
 // @description  Bảng in đơn Shopee (in hoả tốc riêng, ghi theo tên phân loại) + banner cảnh báo giữa-trên màn hình + tô màu dòng đơn và hiện nội dung Note trên trang Giao Hàng Loạt + đèn trạng thái + số đơn trên tên tab + nút Báo lỗi
 // @match        https://banhang.shopee.vn/*
 // @run-at       document-idle
@@ -38,7 +38,7 @@
     if (document.body) nhac(); else document.addEventListener('DOMContentLoaded', nhac);
     return;
   }
-  window.__SMH_IN_DON = '8.8.1';
+  window.__SMH_IN_DON = '8.8.2';
 
 
   /* ===================================================================
@@ -86,7 +86,7 @@
 
   /* =================================================================== */
 
-  const PHIEN_BAN   = '8.8.1';
+  const PHIEN_BAN   = '8.8.2';
   const KEY_SHOP    = 'SMH_SHOP_V1';
   const TRANG_GHL   = '/portal/sale/mass/ship';
   const KEY_JOB     = 'SMH_JOB_V21';
@@ -1452,7 +1452,7 @@
   }
 
   function veTinNhanPopup(tn) {
-    const ds = (tn || []).map(tatLoc).filter(coCanhBao);   // bản 8.8.1: bỏ Note đã tắt
+    const ds = (tn || []).map(tatLoc).filter(coCanhBao);   // bản 8.8.2: bỏ Note đã tắt
     let p = document.getElementById('smh-tn-popup');
 
     if (!ds.length && !trangThaiTN) { if (p) p.remove(); return; }
@@ -2490,7 +2490,7 @@
 
   setTimeout(xnBatDau, 2500);   // bản 8.7: nút Xem ngay
 
-  /* ---------- Bản 8.8.1: nút ✕ tắt từng Note trên popup ----------
+  /* ---------- Bản 8.8.2: nút ✕ tắt từng Note trên popup ----------
      Bấm ✕ -> Note của đơn đó ẩn hẳn (lưu trong máy, F5 không hiện lại).
      Dòng Hoả tốc không có ✕. Cuối popup có "↺ Hiện lại N note đã tắt". */
   const TAT = { P: 'smh-tn', POPUP: 'smh-tn-popup', NOTE: '.smh-tn-note', KEY: 'smh-tn-note-da-tat' };
@@ -2546,7 +2546,7 @@
       tatDong();
     } catch (e) {}
   }
-  // Chân popup: "↺ Hiện lại N note đã tắt" (trái) + tên script · phiên bản (phải, bản 8.8.1)
+  // Chân popup: "↺ Hiện lại N note đã tắt" (trái) + tên script · phiên bản (phải, bản 8.8.2)
   // Popup đã tắt hết mà còn note bị tắt thì hiện 1 nút nhỏ riêng ở giữa mép trên.
   function tatHienLai() {
     const m = tatDoc(); for (const k in tatThay) { delete m[k]; delete tatThay[k]; } tatGhi(m);
@@ -2570,15 +2570,16 @@
       if (pill) pill.remove();
       let f = document.getElementById(TAT.P + '-chan');
       if (!f || f.parentElement !== p || p.lastElementChild !== f) { if (f) f.remove(); f = document.createElement('div'); f.id = TAT.P + '-chan'; f._k = ''; p.appendChild(f); }
-      const k = String(n);
+      const cu = tcCu();
+      const k = String(n) + '|' + (cu ? cu.ban : '');
       if (f._k === k) return;
       f._k = k; f.textContent = '';
       f.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:6px;font:12px/1.3 system-ui,"Segoe UI",sans-serif';
       const trai = document.createElement('span'); trai.style.cssText = 'flex:1;min-width:0';
       if (n) trai.appendChild(tatLink(n));
       const phai = document.createElement('span');
-      phai.textContent = 'In don shopee · ' + PHIEN_BAN; phai.title = 'Script đang chạy · phiên bản';
-      phai.style.cssText = 'flex:none;color:#6b7280;font-weight:600';
+      phai.textContent = 'In don shopee · ' + PHIEN_BAN + (cu ? ' · ⚠ có bản ' + cu.ban : ''); phai.title = cu ? 'GitHub đã có bản ' + cu.ban + ' hơn 8 tiếng mà máy chưa tự cập nhật' : 'Script đang chạy · phiên bản';
+      phai.style.cssText = 'flex:none;font-weight:600;color:' + (cu ? '#c62828' : '#6b7280');
       f.appendChild(trai); f.appendChild(phai);
       return;
     }
@@ -2590,5 +2591,39 @@
     } else pill.firstChild.textContent = '↺ Hiện lại ' + n + ' note đã tắt';
   }
 
-  setInterval(tatNut, 1000);   // bản 8.8.1: nút ✕ tắt Note
+  /* ---------- Bản 8.8.2: tự kiểm tra bản mới trên GitHub ----------
+     Mỗi ~1 giờ hỏi GitHub. GitHub có bản mới hơn quá 8 tiếng mà máy vẫn chạy bản cũ
+     -> chân popup ghi đỏ + 1 nút nhỏ góc trái dưới "⚠ Có bản X — bấm để cập nhật".
+     (TikTok chặn mọi kết nối ra ngoài trang nên script TikTok không tự hỏi được — bỏ qua, không báo lỗi.) */
+  const TC = { LINK: 'https://raw.githubusercontent.com/phanbacao/tdg-script/main/in-don/shopee.user.js', KEY: TAT.P + '-capnhat' };
+  function tcCuHon(a, b) { const x = String(a).split('.').map(Number), y = String(b).split('.').map(Number); for (let i = 0; i < Math.max(x.length, y.length); i++) { const p = x[i] || 0, q = y[i] || 0; if (p !== q) return p < q; } return false; }
+  function tcDoc() { try { return JSON.parse(localStorage.getItem(TC.KEY) || 'null'); } catch (e) { return null; } }
+  function tcCu() { const c = tcDoc(); return c && c.ban && tcCuHon(PHIEN_BAN, c.ban) && Date.now() - c.t >= 8 * 3600000 ? c : null; }
+  async function tcKiem() {
+    try {
+      const r = await fetch(TC.LINK + '?t=' + Date.now(), { cache: 'no-store', credentials: 'omit' });
+      const m = /@version\s+([\d.]+)/.exec(await r.text());
+      if (!r.ok || !m) return;
+      const ban = m[1], c = tcDoc();
+      if (!tcCuHon(PHIEN_BAN, ban)) { try { localStorage.removeItem(TC.KEY); } catch (e) {} return; }
+      if (!c || c.ban !== ban) { try { localStorage.setItem(TC.KEY, JSON.stringify({ ban: ban, t: Date.now() })); } catch (e) {} }
+      try { log('Kiểm tra bản mới: GitHub có ' + ban + ', máy đang chạy ' + PHIEN_BAN); } catch (e) {}
+    } catch (e) { /* TikTok chặn kết nối ra ngoài -> bỏ qua */ }
+  }
+  function tcNut() {
+    const cu = tcCu();
+    let b = document.getElementById(TAT.P + '-cn');
+    if (!cu) { if (b) b.remove(); return; }
+    if (!b) {
+      b = document.createElement('a'); b.id = TAT.P + '-cn'; b.href = TC.LINK; b.target = '_blank'; b.rel = 'noopener';
+      b.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:2147483646;background:#c62828;color:#fff;text-decoration:none;border-radius:8px;padding:7px 12px;font:700 13px system-ui,"Segoe UI",sans-serif;box-shadow:0 3px 10px rgba(0,0,0,.3)';
+      document.body.appendChild(b);
+    }
+    const chu = '⚠ In don shopee: có bản ' + cu.ban + ' (đang chạy ' + PHIEN_BAN + ') — bấm để cập nhật';
+    if (b.textContent !== chu) { b.textContent = chu; b.title = 'Máy chưa tự cập nhật hơn 8 tiếng. Bấm để mở trang cài của Tampermonkey → bấm Ghi đè/Cập nhật → F5 trang này.'; }
+  }
+  setTimeout(function () { tcKiem(); (function hen() { setTimeout(function () { tcKiem(); hen(); }, (50 + Math.random() * 20) * 60000); })(); }, 90000 + Math.random() * 60000);
+  setInterval(tcNut, 5000);
+
+  setInterval(tatNut, 1000);   // bản 8.8.2: nút ✕ tắt Note
 })();
