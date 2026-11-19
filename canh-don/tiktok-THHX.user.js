@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Canh đơn THHX ⚫
 // @namespace    sonmochuong
-// @version      6.7.1
+// @version      6.8
 // @description  Canh đơn TikTok Trầm Hương Hà Xá → Lark: đơn hoả tốc (nhóm Hoả tốc) + đơn thường sắp quá hạn bàn giao (nhóm Quá hạn) + báo lỗi (nhóm Hệ thống), điểm danh Healthchecks
 // @match        https://seller-vn.tiktok.com/*
 // @grant        GM_xmlhttpRequest
@@ -210,7 +210,7 @@
      PHẦN CẤU HÌNH
      ========================================================================== */
 
-  // Bản 6.7.1: link bí mật (nhóm Lark, Healthchecks) KHÔNG nằm trong bản GitHub.
+  // Bản 6.8: link bí mật (nhóm Lark, Healthchecks) KHÔNG nằm trong bản GitHub.
   // Bản cài tay có sẵn link -> cất vào máy; các bản tự cập nhật sau dùng link đã cất.
   const BI_MAT_GOC = {};
   const BI_MAT = (function () {
@@ -298,7 +298,7 @@
     MAU_TIN_DA_XU_LY: 'ĐÃ XỬ LÝ trong vòng {phut} phút ({n} đơn hoả tốc {ten}: {hang} | {ma}{dvvc})',
 
     // ===== KHUNG GIỜ CANH: 7h45 -> 21h00 =====
-    GIO_BAT_DAU: 7, PHUT_BAT_DAU: 45,
+    GIO_BAT_DAU: 7, PHUT_BAT_DAU: 40,   // bản 6.8: 7h40 (trước là 7h45)
     GIO_KET_THUC: 21, PHUT_KET_THUC: 0,
     NGAY_TRONG_TUAN: null, // null = mọi ngày, kể cả Chủ nhật
 
@@ -411,7 +411,7 @@
 
   const TEN = CAU_HINH.VIET_TAT + ' ' + CAU_HINH.TEN_SAN;
   const TEN_NGAN = CAU_HINH.VIET_TAT + ' ⚫';   // bản 6.0: tên ngắn trong tin Lark và ô trạng thái
-  const PHIEN_BAN = '6.7.1';
+  const PHIEN_BAN = '6.8';
   const logGoc = (...a) => console.log('%c[hoả tốc ' + TEN + ']', 'color:#0a8;font-weight:bold', ...a);
   const log = (...a) => { logGoc(...a); try { nkGhiLog(a); } catch (e) {} };   // bản 6.3: kèm nhật ký 7 ngày
   const nghi = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -772,7 +772,7 @@
       if ((r = /^đã canh lại bình thường(?: \(gián đoạn khoảng (\d+) phút\))?(?: · (.+))?/.exec(nd)))
         return the('green', '✅ ' + TEN_NGAN + ' · đã canh lại' + (r[1] ? ' · gián đoạn ' + r[1] + ' phút' : '') + (r[2] ? ' (' + r[2] + ')' : ''), '', chan);
       if (/^🧪/.test(nd)) return the('blue', '🧪 ' + TEN_NGAN + ' · ' + nd.replace(/^🧪 /, ''), '', chan);
-      // bản 6.7.1: thẻ cho tin nhắc size / tự cập nhật
+      // bản 6.8: thẻ cho tin nhắc size / tự cập nhật
       // bản 9.7.2: tin nhắc size là tin PHỤ -> tiêu đề riêng "… · Shop SMH Shopee", không dùng ❌/tên ngắn như tin lỗi quan trọng
       const shopNs = 'Shop ' + CAU_HINH.VIET_TAT + ' ' + CAU_HINH.TEN_SAN;
       if ((r = /^💬 (\S+) · ([\s\S]+)$/.exec(nd))) return the('green', '💬 Đã nhắn nhắc size 8li · ' + shopNs, boMd(r[2]), chan, boMd(r[1]));
@@ -810,6 +810,9 @@
     if ((m = /^\(GẤP\) (\S+) (.+?) ĐÃ QUÁ HẠN/.exec(s))) {
       return the('red', '⛔ ' + TEN_NGAN + ' · quá hạn · ' + m[1], '', 'Đơn hoả tốc đã quá hạn xử lý');
     }
+    // --- bản 6.8: tin gộp — đơn hoả tốc đã xử lý trong lúc ngoài giờ canh ---
+    if ((m = /^✅ Trước (\S+) đã xử lý (\d+) đơn hoả tốc\n([\s\S]*)$/.exec(s)))
+      return the('green', '✅ Trước ' + m[1] + ' đã xử lý ' + m[2] + ' đơn hoả tốc · ' + TEN_NGAN, boMd(m[3]), 'Đơn phát sinh ngoài giờ canh, nhân sự đã xử lý xong');
     // --- xử lý xong trong lúc giữ ---
     if ((m = /^ĐÃ XỬ LÝ trong vòng (\d+) phút \((\d+) đơn hoả tốc (.+?): ([\s\S]*) \| (\S+?)(?: \(([^()]+)\))?\)$/.exec(s))) {
       return the('green', '✅ Đã xử lý trong ' + m[1] + ' phút · ' + m[4].replace(/\s*\n\s*/g, ', '), '',   // bản 6.4.4
@@ -1059,7 +1062,7 @@
     catch (e) { b.textContent = '⚠'; oBao('⚠ Không tạo được file nhật ký'); log('không tải được nhật ký', e); }
     setTimeout(function () { b.disabled = false; b.textContent = '⬇'; }, 5000);
   }
-  // Bản 6.7.1: hàng nút gọn (phương án A) — 1 nút lớn + 3 nút biểu tượng, rê chuột hiện tên, không lẹm
+  // Bản 6.8: hàng nút gọn (phương án A) — 1 nút lớn + 3 nút biểu tượng, rê chuột hiện tên, không lẹm
   function hangNut(el, co) {
     let h = document.getElementById('__hoatoc_nut');
     if (!h) {
@@ -1226,7 +1229,7 @@
       if (dau === '✖' || dau === '⚠') chiTiet += ghiChuTuSua() + (tonDong ? ' · ⚠ ' + soTinTonDong + ' tin chưa gửi' : '');
 
       el.style.background = nen;
-      el.style.padding = '12px 14px';   // bản 6.7.1: thẻ rộng cố định, không lẹm
+      el.style.padding = '12px 14px';   // bản 6.8: thẻ rộng cố định, không lẹm
       el.style.boxSizing = 'border-box';
       el.style.width = Math.min(420, (window.innerWidth || 1200) - 24) + 'px';
       el.style.animation = (coDon && CAU_HINH.NHAP_NHAY_KHI_CO_DON) ? 'hoatocNhay 0.9s ease-in-out infinite' : 'none';
@@ -1629,15 +1632,24 @@
     if (!ds) return;
     state.lanDocOk = now;
     const coTheBao = lienMach(truoc, now);
+    const dauNgay = !coTheBao && laDauNgay(truoc);   // bản 6.8: đầu ngày -> gộp đơn đã xử lý ngoài giờ canh
+    const gop = [];
     for (const d of ds) {
       const k = String(d.main_order_id || '');
       if (!k || idHienTai.indexOf(k) !== -1 || (state.daThay && state.daThay[k])) continue;
       ghiDaThay(state, k, true);
+      if (dauNgay) {
+        const ts0 = Number(gioTaoDon(d)) || 0;
+        if (ts0 * 1000 >= truoc - 90000 && gop.length < 30) gop.push(k + ' · ' + String(moTaHang(d) || '').replace(/\s*\n\s*/g, ', ') + (tenDvvc(d) ? ' · ' + tenDvvc(d) : ''));
+        continue;
+      }
       if (!coTheBao) continue;
       const ts = Number(gioTaoDon(d)) || 0;
       if (ts * 1000 < truoc - 90000) continue; // đơn cũ, không phải đơn vừa có
       guiLark(ghiPhut(tinDaXuLy(moTaHang(d), k, tenDvvc(d)), ts));
     }
+    if (gop.length) { log('đầu ngày: ' + gop.length + ' đơn hoả tốc đã xử lý ngoài giờ canh -> gửi 1 tin gộp'); guiLark('✅ Trước ' + nhanTruocGio() + ' đã xử lý ' + gop.length + ' đơn hoả tốc\n' + gop.join('\n')); }
+    else if (dauNgay) log('đầu ngày: không có đơn hoả tốc nào xử lý ngoài giờ canh');
   }
 
   // ---------- đọc hàng hoá trong một đơn ----------
@@ -1768,6 +1780,18 @@
   }
   // Lần đọc trước còn "liền mạch" (không bị gián đoạn) thì mới dám nói đơn
   // được xử lý trong vòng 1 phút; vừa mở máy / vừa gián đoạn thì chỉ ghi sổ.
+
+  // bản 6.8: lần đọc đầu tiên của ngày (lần đọc trước nằm trước giờ bắt đầu canh hôm nay)
+  function laDauNgay(truoc) {
+    if (!truoc) return false;
+    const d = new Date(); d.setHours(CAU_HINH.GIO_BAT_DAU, CAU_HINH.PHUT_BAT_DAU, 0, 0);
+    return truoc < d.getTime();
+  }
+  function nhanTruocGio() {
+    const d = new Date(); d.setHours(CAU_HINH.GIO_BAT_DAU, CAU_HINH.PHUT_BAT_DAU, 0, 0);
+    if (Date.now() - d.getTime() < 20 * 60000) return CAU_HINH.GIO_BAT_DAU + 'h' + hai(CAU_HINH.PHUT_BAT_DAU);
+    const n = new Date(); return hai(n.getHours()) + ':' + hai(n.getMinutes());
+  }
   function lienMach(truoc, now) {
     return !!truoc && now - truoc <= Math.max(6, CAU_HINH.CHU_KY_GIAY * 3 / 60) * 60000;
   }
@@ -2700,7 +2724,7 @@
   }
 
 
-  /* ---------- Bản 6.7.1: TỰ CẬP NHẬT từ GitHub ----------
+  /* ---------- Bản 6.8: TỰ CẬP NHẬT từ GitHub ----------
      - Tampermonkey tự tải bản mới (link @updateURL). Script chỉ: ghi nhật ký,
        báo nhóm Cao hệ thống khi máy đã lên bản mới, tải lại trang (lúc rảnh, tối đa
        1 lần/giờ) để nạp bản mới, và báo nếu sau 8 tiếng máy vẫn chưa lên bản. */
@@ -2763,5 +2787,5 @@
   }
 
   setTimeout(khoiDong, 4000);
-  setTimeout(cnBatDau, 6000);   // bản 6.7.1: tự cập nhật
+  setTimeout(cnBatDau, 6000);   // bản 6.8: tự cập nhật
 })();
