@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Smh in don shopee
 // @namespace    sonmochuong.print
-// @version      8.8.2
+// @version      8.9
 // @description  Bảng in đơn Shopee (in hoả tốc riêng, ghi theo tên phân loại) + banner cảnh báo giữa-trên màn hình + tô màu dòng đơn và hiện nội dung Note trên trang Giao Hàng Loạt + đèn trạng thái + số đơn trên tên tab + nút Báo lỗi
 // @match        https://banhang.shopee.vn/*
 // @run-at       document-idle
@@ -38,7 +38,7 @@
     if (document.body) nhac(); else document.addEventListener('DOMContentLoaded', nhac);
     return;
   }
-  window.__SMH_IN_DON = '8.8.2';
+  window.__SMH_IN_DON = '8.9';
 
 
   /* ===================================================================
@@ -86,7 +86,7 @@
 
   /* =================================================================== */
 
-  const PHIEN_BAN   = '8.8.2';
+  const PHIEN_BAN   = '8.9';
   const KEY_SHOP    = 'SMH_SHOP_V1';
   const TRANG_GHL   = '/portal/sale/mass/ship';
   const KEY_JOB     = 'SMH_JOB_V21';
@@ -1452,7 +1452,7 @@
   }
 
   function veTinNhanPopup(tn) {
-    const ds = (tn || []).map(tatLoc).filter(coCanhBao);   // bản 8.8.2: bỏ Note đã tắt
+    const ds = (tn || []).map(tatLoc).filter(coCanhBao);   // bản 8.9: bỏ Note đã tắt
     let p = document.getElementById('smh-tn-popup');
 
     if (!ds.length && !trangThaiTN) { if (p) p.remove(); return; }
@@ -2414,7 +2414,7 @@
       const b = document.createElement('button');
       b.type = 'button'; b.className = XN.P + '-xn';
       b.textContent = '👁 Xem ngay';
-      b.title = 'Mở trang đơn hoả tốc và tick sẵn tất cả đơn hoả tốc đang chờ — anh tự bấm in';
+      b.title = 'Mở trang và lọc sẵn đơn hoả tốc đang chờ — anh tự tick rồi bấm in';
       b.style.cssText = 'margin-left:10px;border:0;border-radius:6px;padding:3px 12px;font-weight:800;font-size:13px;cursor:pointer;color:#fff;background:#1565c0;vertical-align:middle;box-shadow:0 1px 3px rgba(0,0,0,.25)';
       b.onclick = function (ev) {
         ev.preventDefault(); ev.stopPropagation();
@@ -2423,7 +2423,11 @@
         log('Bấm "Xem ngay" trên popup hoả tốc');
         if (xnLaTrangDich()) xnChay(); else location.href = xnDuongDich();
       };
-      hang.appendChild(b);
+      // bản 8.9: đặt ngay sau mã đơn (+ nút copy), không xuống dòng
+      const maEl = hang.querySelector('[class$="-ma"]');
+      let sau = maEl; if (sau && sau.nextElementSibling && sau.nextElementSibling.tagName === 'BUTTON' && !/-xn$/.test(sau.nextElementSibling.className)) sau = sau.nextElementSibling;
+      b.style.whiteSpace = 'nowrap'; b.style.flex = 'none';
+      if (sau && sau.parentElement === hang) sau.after(b); else hang.appendChild(b);
     } catch (e) {}
   }
   function xnJob() { try { const j = JSON.parse(localStorage.getItem(XN.KEY) || 'null'); return j && Date.now() - j.t < 90000 ? j : null; } catch (e) { return null; } }
@@ -2436,8 +2440,8 @@
       xnBao('⏳ Đang lọc đơn hoả tốc…');
       const n = await xnChonHoaToc();
       if (!n) { xnBao('Không còn đơn hoả tốc nào đang chờ.', '#5b5f68'); log('Xem ngay: không có đơn hoả tốc đang chờ'); }
-      else { xnBao('✔ Đã chọn ' + n + ' đơn hoả tốc — anh kiểm tra rồi tự bấm in / giao hàng', '#14853b'); log('Xem ngay: đã tick ' + n + ' đơn hoả tốc'); }
-    } catch (e) { xnBao('⚠ Xem ngay chưa xong: ' + e.message + ' — anh lọc và tick tay', '#c62828'); log('Xem ngay LỖI: ' + e.message); }
+      else { xnBao('✔ Đã lọc ' + n + ' đơn hoả tốc — anh tick chọn rồi bấm in / giao hàng', '#14853b'); log('Xem ngay: đã lọc ' + n + ' đơn hoả tốc (không tick — bản 8.9)'); }
+    } catch (e) { xnBao('⚠ Xem ngay chưa xong: ' + e.message + ' — anh lọc tay', '#c62828'); log('Xem ngay LỖI: ' + e.message); }
     xnDangChay = false;
   }
   function xnBatDau() {
@@ -2479,18 +2483,29 @@
     await xnCho(function () { const n = document.querySelectorAll('.mass-ship-row').length; const k = String(n); if (k !== ky) { ky = k; tu = Date.now(); return false; } return Date.now() - tu > 1500; }, 20000, 'danh sách đơn');
     const rows = [...document.querySelectorAll('.mass-ship-row')];
     if (!rows.length) return 0;
-    const hd = document.querySelector('.eds-row.content input[type=checkbox]');
-    if (hd && !hd.checked) (hd.closest('label') || hd).click();
-    await xnNghi(600);
-    for (const r of rows) { const c = r.querySelector('input[type=checkbox]'); if (c && !c.checked) (c.closest('label') || c).click(); }
-    await xnCho(function () { return rows.every(function (r) { const c = r.querySelector('input[type=checkbox]'); return c && c.checked; }); }, 6000, 'tất cả đơn được tick');
+    // bản 8.9: KHÔNG tick nữa — chỉ lọc, nhân sự tự tick
     try { rows[0].scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {}
     return rows.length;
   }
 
   setTimeout(xnBatDau, 2500);   // bản 8.7: nút Xem ngay
 
-  /* ---------- Bản 8.8.2: nút ✕ tắt từng Note trên popup ----------
+  // bản 8.9: viền nhỏ quanh ô tick của đơn được tô viền (vòng trắng + viền màu loại đơn, nằm TRÊN viền của dòng)
+  (function () {
+    try {
+      if (document.getElementById('smh-vongtick')) return;
+      const st = document.createElement('style'); st.id = 'smh-vongtick';
+      st.textContent = '.mass-ship-card.smh-mk .mass-ship-col.checkbox{overflow:visible !important}'
+        + '.mass-ship-card.smh-mk .eds-checkbox{position:relative;z-index:5;margin-left:6px}'
+        + 'a.order-card.smh-mk2 .eds-checkbox{position:relative;z-index:5}'
+        + '.mass-ship-card.smh-mk .eds-checkbox__indicator,a.order-card.smh-mk2 .eds-checkbox__indicator,tr.smh-mk label.p-checkbox'
+        + '{background:#fff;border-radius:3px;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--smh-c,#c62828) !important}'
+        + 'tr.smh-mk label.p-checkbox{position:relative;z-index:5}';
+      (document.head || document.documentElement).appendChild(st);
+    } catch (e) {}
+  })();
+
+  /* ---------- Bản 8.9: nút ✕ tắt từng Note trên popup ----------
      Bấm ✕ -> Note của đơn đó ẩn hẳn (lưu trong máy, F5 không hiện lại).
      Dòng Hoả tốc không có ✕. Cuối popup có "↺ Hiện lại N note đã tắt". */
   const TAT = { P: 'smh-tn', POPUP: 'smh-tn-popup', NOTE: '.smh-tn-note', KEY: 'smh-tn-note-da-tat' };
@@ -2531,13 +2546,32 @@
         b.onmouseleave = function () { b.style.color = '#5b5f68'; };
         b.onclick = function (ev) {
           ev.preventDefault(); ev.stopPropagation();
-          const m = tatDoc(); m[k] = Date.now(); tatGhi(m);
-          tatThay[k] = Date.now();
-          try { log('Tắt Note đơn ' + k); } catch (e) {}
-          const rows = r.parentElement;
-          r.remove();
-          if (rows && !rows.children.length) { const pp = document.getElementById(TAT.POPUP); if (pp) pp.remove(); }
-          tatVeLai(); tatDong();
+          // bản 8.9: "Đã tắt Note · Hoàn tác" 5 giây rồi mới ẩn hẳn
+          const cu = [...r.children]; cu.forEach(function (c) { c.style.display = 'none'; });
+          const bao = document.createElement('div');
+          bao.style.cssText = 'display:flex;align-items:center;gap:10px;width:100%;font:600 13px system-ui,"Segoe UI",sans-serif;color:#374151;padding:2px 0';
+          const chu = document.createElement('span'); chu.textContent = 'Đã tắt Note đơn ' + k;
+          const hoan = document.createElement('a'); hoan.href = '#'; hoan.textContent = 'Hoàn tác (5)';
+          hoan.style.cssText = 'color:#1565c0;font-weight:800;text-decoration:none;cursor:pointer';
+          bao.appendChild(chu); bao.appendChild(hoan); r.appendChild(bao);
+          let con = 5, huy = false;
+          const dem = setInterval(function () { con--; if (con > 0) hoan.textContent = 'Hoàn tác (' + con + ')'; }, 1000);
+          hoan.onclick = function (e2) {
+            e2.preventDefault(); e2.stopPropagation(); huy = true; clearInterval(dem);
+            bao.remove(); cu.forEach(function (c) { c.style.display = ''; });
+            try { log('Hoàn tác tắt Note đơn ' + k); } catch (e) {}
+          };
+          setTimeout(function () {
+            clearInterval(dem);
+            if (huy) return;
+            const m = tatDoc(); m[k] = Date.now(); tatGhi(m);
+            tatThay[k] = Date.now();
+            try { log('Tắt Note đơn ' + k); } catch (e) {}
+            const rows = r.parentElement;
+            if (r.isConnected) r.remove();
+            if (rows && !rows.children.length) { const pp = document.getElementById(TAT.POPUP); if (pp) pp.remove(); }
+            tatVeLai(); tatDong();
+          }, 5000);
         };
         // đặt ✕ ở góc phải dòng mã đơn (trước ô Note nếu ô Note nằm dòng riêng)
         let c = r.querySelector(TAT.NOTE); while (c && c.parentElement !== r) c = c.parentElement;
@@ -2546,7 +2580,7 @@
       tatDong();
     } catch (e) {}
   }
-  // Chân popup: "↺ Hiện lại N note đã tắt" (trái) + tên script · phiên bản (phải, bản 8.8.2)
+  // Chân popup: "↺ Hiện lại N note đã tắt" (trái) + tên script · phiên bản (phải, bản 8.9)
   // Popup đã tắt hết mà còn note bị tắt thì hiện 1 nút nhỏ riêng ở giữa mép trên.
   function tatHienLai() {
     const m = tatDoc(); for (const k in tatThay) { delete m[k]; delete tatThay[k]; } tatGhi(m);
@@ -2591,7 +2625,7 @@
     } else pill.firstChild.textContent = '↺ Hiện lại ' + n + ' note đã tắt';
   }
 
-  /* ---------- Bản 8.8.2: tự kiểm tra bản mới trên GitHub ----------
+  /* ---------- Bản 8.9: tự kiểm tra bản mới trên GitHub ----------
      Mỗi ~1 giờ hỏi GitHub. GitHub có bản mới hơn quá 8 tiếng mà máy vẫn chạy bản cũ
      -> chân popup ghi đỏ + 1 nút nhỏ góc trái dưới "⚠ Có bản X — bấm để cập nhật".
      (TikTok chặn mọi kết nối ra ngoài trang nên script TikTok không tự hỏi được — bỏ qua, không báo lỗi.) */
@@ -2625,5 +2659,5 @@
   setTimeout(function () { tcKiem(); (function hen() { setTimeout(function () { tcKiem(); hen(); }, (50 + Math.random() * 20) * 60000); })(); }, 90000 + Math.random() * 60000);
   setInterval(tcNut, 5000);
 
-  setInterval(tatNut, 1000);   // bản 8.8.2: nút ✕ tắt Note
+  setInterval(tatNut, 1000);   // bản 8.9: nút ✕ tắt Note
 })();
