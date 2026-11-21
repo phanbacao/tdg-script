@@ -2,9 +2,9 @@
 
 Các script Tampermonkey dùng trong TDG. Tampermonkey trên mỗi máy **tự cập nhật** khi có bản mới tại đây (kiểm tra mỗi 6 tiếng).
 
-**Cài trên máy mới:** cài tiện ích Tampermonkey → bấm link trong cột "Cài" → bấm **Cài đặt**. Riêng 4 script canh đơn: lần đầu phải cài **bản cài tay** Claude gửi (có sẵn link nhóm Lark), vì bản trên đây không chứa link bí mật.
+**Cài trên máy mới:** cài tiện ích Tampermonkey → bấm link trong cột "Cài" → bấm **Cài đặt**. Riêng 4 script canh đơn: lần đầu phải cài **bản cài tay** Claude gửi (có sẵn link nhóm Lark), vì bản trên đây không chứa link bí mật. TDG-pancake: key Gemini và link Apps Script nhập trong ⚙ của từng máy.
 
-Cập nhật lần cuối: 19/11/2026
+Cập nhật lần cuối: 21/11/2026
 
 | Việc | Script | Bản | Ngày | Máy dùng | Cài | Thay đổi gần nhất |
 |---|---|---|---|---|---|---|
@@ -16,6 +16,7 @@ Cập nhật lần cuối: 19/11/2026
 | In đơn | Cao - In don tiktok | 1.7 | 19/11/2026 | Máy Cao | [cài](https://raw.githubusercontent.com/phanbacao/tdg-script/main/in-don/tiktok.user.js) | Xem ngay ngang hàng mã đơn, chỉ lọc (không tick); viền quanh ô tick; ✕ Note có Hoàn tác 5 giây |
 | Note fulfillment | Note fulfillment shopee | 3.8 | 19/11/2026 | Máy Fulfillment | [cài](https://raw.githubusercontent.com/phanbacao/tdg-script/main/note-fulfillment/shopee.user.js) | Xem ngay ngang hàng mã đơn, chỉ lọc (không tick); viền quanh ô tick; ✕ Note có Hoàn tác 5 giây |
 | Note fulfillment | Note fulfillment tiktok | 1.7 | 19/11/2026 | Máy Fulfillment | [cài](https://raw.githubusercontent.com/phanbacao/tdg-script/main/note-fulfillment/tiktok.user.js) | Xem ngay ngang hàng mã đơn, chỉ lọc (không tick); viền quanh ô tick; ✕ Note có Hoàn tác 5 giây |
+| Chatbot | TDG-pancake (Zalo SMH + THHX trên Pancake) | 1.2.2 | 21/11/2026 | Máy Cao | [cài](https://raw.githubusercontent.com/phanbacao/tdg-script/main/chatbot/pancake.user.js) | Tự học từ nhân viên + tự rà soát mỗi đêm; không lấy địa chỉ/SĐT Shop; đọc SĐT (+84); khuyến mãi sửa trong ⚙ |
 | Đăng bài FB | Smh dang bai fb kenh 1 | 6.37 | 07/11/2026 | Máy Cao + Máy Giao | [kho riêng](https://github.com/phanbacao/smh-dang-bai-fb) | (đang ở kho smh-dang-bai-fb) |
 
 Không có mã bí mật nào trong kho này.
