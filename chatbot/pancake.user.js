@@ -515,7 +515,7 @@ khong_phai_khach=true khi người nhắn KHÔNG phải khách mua hàng: nhân 
   }
   const pendingOf = (msgs) => { let i = msgs.length; while (i > 0 && msgs[i - 1].k) i--; return msgs.slice(i); };
   const CLOSE_WORDS = /^(ok|oke|okê|okie|oki|okay|okela|dạ|vâng|ừ|uk|ừm|ờ|cảm ơn|cám ơn|thanks|thank you|thank|tks|dạ vâng|vâng ạ|dạ ok|dạ cảm ơn|ok cảm ơn|được rồi|rồi|xong)( (shop|bạn|em|e|nhé|nha|ạ|nhiều|shop nhé|shop nha|bạn nhé|nhé ạ|ạ shop))*$/i;
-  const isClosing = (m) => { if (!m.k) return false; const t = norm(m.text).replace(/[\s.!,~?]+$/g, '').replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF\uFE0F❤♥]/gu, '').trim(); if (!t) return (m.att || []).length > 0 && m.att.every((a) => a.type === 'sticker'); return CLOSE_WORDS.test(t); };
+  const isClosing = (m) => { if (!m.k) return false; const t = norm(m.text).replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF\uFE0F❤♥]/gu, '').replace(/[.!,~?]+/g, ' ').replace(/(^|\s)(e|em|mình|anh|chị|a|c|bạn|tôi|t)(?=\s|$)/g, ' ').replace(/\s+/g, ' ').trim().replace(/^(dạ|vâng)\s+(?=\S)/, ''); if (!t) return (m.att || []).length > 0 && m.att.every((a) => a.type === 'sticker'); return CLOSE_WORDS.test(t); };
   const curSg = () => (S.active && S.sg[S.active.convId]) || null;
   const aiBusyHere = () => S.busy && S.active && S.busyConv === S.active.convId;
   async function suggest(manual, extra) {
@@ -898,7 +898,9 @@ khong_phai_khach=true khi người nhắn KHÔNG phải khách mua hàng: nhân 
         if (blk) { const d = parseOrderBlock(blk.text) || {}; if (!d.sdt || !d.dc || !d.ten) add('Tin tạo đơn đọc thiếu', c, blk.text.replace(/\n/g, ' / ')); }
         const negM = inDay.find((m) => m.k === 1 && m.text && NEG_RX.test(m.text)); if (negM) add('Khách không hài lòng', c, negM.text);
         const last = ms[ms.length - 1]; const lt = last ? Date.parse(last.t + 'Z') : 0;
-        if (last && last.k === 1 && lt >= from && lt < to && Date.now() - lt > 2 * 3600e3 && !isClosing(Object.assign({}, last, { att: [] })) && !notCust[c.id]) { unans++; add('Khách nhắn chưa được trả lời (quá 2 tiếng)', c, last.text || '[' + last.att + ']'); }
+        const sysLast = last && (!last.text && /zalo_system|pzl_chat_recommended|reaction|sticker/.test(String(last.att || '')) || SYS_RX.test(last.text || ''));
+        const broadcast = last && /thông báo|kính gửi|quý khách|quý đối tác|bảng giá|cước phí/i.test(last.text || '') && (last.text || '').length > 150;
+        if (last && last.k === 1 && !sysLast && !broadcast && lt >= from && lt < to && Date.now() - lt > 2 * 3600e3 && !isClosing(Object.assign({}, last, { att: [] })) && !notCust[c.id]) { unans++; add('Khách nhắn chưa được trả lời (quá 2 tiếng)', c, last.text || '[' + last.att + ']'); }
       });
       const L = allLessons().filter((l) => { const t = l.ts; return t >= from && t < to; });
       const sum = { hoi_thoai: nConv, chot_don: chot, bao_hanh: bh, chua_tra_loi: unans, loi: cnt, bai_hoc_moi: L.length, cap_chat_cu: PAIRS.length, cap_chot_don: PSTAT.chot };
