@@ -224,7 +224,7 @@
 
   // ===================== HỌC CÁCH NÓI TỪ CHAT CŨ =====================
   let PAIRS = [], PSTAT = { chot: 0, vui: 0, xau: 0 };
-  const NEG_RX = /thất vọng|lừa đảo|lừa|tệ quá|quá tệ|chán|bực|không bao giờ mua|ko mua nữa|không mua nữa|làm ăn kiểu|kém quá|1 sao|một sao|phốt|báo cáo shop/i;
+  const NEG_RX = /thất vọng|lừa đảo|(?<!đánh\s)(?<!\p{L})(lừa|chán|bực)(?!\p{L})|tệ quá|quá tệ|không bao giờ mua|ko mua nữa|không mua nữa|làm ăn kiểu|kém quá|1 sao|một sao|phốt|báo cáo shop/iu;
   const HAPPY_RX = /cảm ơn|cám ơn|thanks|tks|ok|oke|tốt|đẹp|ưng|thích|hài lòng|nhận được rồi|❤|👍|🥰|😍/i;
   async function buildPairs() {
     const out = [];
@@ -569,7 +569,7 @@ khong_phai_khach=true khi người nhắn KHÔNG phải khách mua hàng: nhân 
       ak.asked.length ? `SHOP ĐÃ HỎI (TUYỆT ĐỐI không hỏi lại):\n${ak.asked.map((q) => '- ' + q).join('\n')}${ak.known.length ? '\nKHÁCH ĐÃ TRẢ LỜI:\n' + ak.known.map((q) => '- ' + q).join('\n') : ''}` : '',
       extra || '',
       `HỘI THOẠI (cũ → mới):\n${transcript}`,
-      pend.length ? `TIN KHÁCH ĐANG CHỜ TRẢ LỜI (${pend.length} tin): ${pend.map((m) => m.text || '[' + m.att.map((a) => a.type).join(',') + ']').join(' | ')}` : 'Khách chưa nhắn gì mới – soạn câu Shop chủ động nhắn tiếp cho phù hợp hội thoại.',
+      pend.length ? `TIN KHÁCH ĐANG CHỜ TRẢ LỜI (${pend.length} tin): ${pend.map((m) => m.text || '[' + m.att.map((a) => a.type).join(',') + ']').join(' | ')}` : 'KHÁCH CHƯA NHẮN GÌ MỚI (tin cuối là của Shop hoặc khách chỉ cảm ơn/ok). Soạn câu Shop chủ động nhắn: ngắn, chỉ nhắc đúng việc đang dở dựa trên câu Shop vừa nói (vd Shop đã xin thông tin/mã đơn mà khách chưa gửi → nhắc nhẹ). CẤM nói "đã gửi hàng", "đã lên đơn", "đã chuẩn bị xong", "đang giao", hẹn ngày giờ… nếu Shop chưa nói ĐÚNG như vậy trong hội thoại. Hội thoại đã xong xuôi thì soạn câu cảm ơn/chúc ngắn, không hứa gì.',
       `Hãy soạn 3 phương án.`,
     ].filter(Boolean).join('\n\n');
     const out = await callGemini(buildSystem(A.page, lastCust || transcript.slice(-500)), user, images, (m) => { S.aiModel = m; });
@@ -585,7 +585,7 @@ khong_phai_khach=true khi người nhắn KHÔNG phải khách mua hàng: nhân 
     // Có tin tạo đơn thật (Shop đã chép / ghi chú) → tin đó là nguồn chính xác nhất; AI chỉ bù phần thiếu
     const fromBlock = (info.from || []).some((f) => /tin tạo đơn/.test(f));
     const pick = (ai, loc) => (fromBlock ? (loc || ai || '') : (ai || loc || ''));
-    const chot = fromBlock || !!info.sdt || !!info.ma || custPhones.length > 0;
+    const chot = fromBlock || !!info.ma || phonesIn(custSrc).length > 0;
     const aiOrd = (v) => (chot ? v : '');
     const don = { ten: pick(out.don_ten, info.ten), sdt: info.sdt || aiPhone, dc: pick(aiDc, info.dc), ma: info.ma || out.don_ma_san || '', viec: pick(aiOrd(out.don_viec), info.viec), qua: pick(aiOrd(out.don_qua), info.qua), thu: pick(aiOrd(out.don_thu), info.thu) };
     if (don.ma && !findCodes(don.ma).order) don.ma = info.ma || '';
