@@ -275,8 +275,9 @@
     const d = { ten: '', sdt: phonesIn(L[pi])[0], dc: '', viec: '', qua: '', thu: '', ma: '' };
     const isThu = (x) => /thu cod|thu hộ|tổng (cod|tiền)|^tổng\b|miễn phí ship|freeship|free ship|phí ship|đã chuyển khoản|^\d+k?\s*[+*x×]\s*\d+|=\s*\d+\s*k\b/i.test(x);
     const isQua = (x) => /^(tặng|gửi tặng|kèm)(\s|$)/i.test(x);
+    const PROD_RX = /(vòng|chuỗi|nhang|nụ trầm|\bnụ\b|lu thống|bách xanh|\d+\s*li\b|\bhạt\b|mặt phật|trụ trúc|charm|\bthan\b|lư xông)/iu;
     const UNIT = '(kg|g|gr|gram|hộp|vòng|sợi|bịch|túi|bó|cây|bộ|mặt|hạt|đốt|lọ|gói|chuỗi|miếng|thác|đế|lư|bình|chai|set|cặp|que|thẻ|ống|cuộn|khoanh|lách|trụ|charm|dây)';
-    const isProd = (x) => new RegExp('^\\d+([.,]\\d+)?\\s*(x\\s*)?' + UNIT + '(?=[\\s,.:\\d]|$)', 'iu').test(x) || /^(đổi|thu hồi|gửi bù|gửi đi|gửi lại|gửi thêm|giao|lấy|bù)(?=\s|$)/iu.test(x) || (/\b(SMH|THHX)\b/.test(x) && !ADDR_RX.test(x));
+    const isProd = (x) => new RegExp('^\\d+([.,]\\d+)?\\s*(x\\s*)?' + UNIT + '(?=[\\s,.:]|$)', 'iu').test(x) || /^(đổi|thu hồi|gửi bù|gửi đi|gửi lại|gửi thêm|giao|lấy về|lấy|bù)(?=[\s:,.]|$)/iu.test(x) || (/\b(SMH|THHX)\b/.test(x) && !ADDR_RX.test(x)) || (PROD_RX.test(x) && !ADDR_RX.test(x));
     const head = L.slice(0, pi);
     const codeLine = head.find((x) => findCodes(x).order || /^zalo\b/i.test(x));
     if (codeLine) { const c = findCodes(codeLine); if (c.order) d.ma = c.order; }
@@ -284,7 +285,7 @@
     // dòng trước SĐT có thể là tên HOẶC địa chỉ (có người ghi địa chỉ trước SĐT)
     const headAddr = others.filter((x) => ADDR_RX.test(x) && x.length > 12);
     const nameLine = others.filter((x) => !headAddr.includes(x)).pop();
-    if (nameLine) d.ten = nameLine.replace(/^(tên|khách|người nhận)\s*[:：]\s*/i, '').replace(/\s*(sđt|sdt|số điện thoại|đt)\s*[:：]?.*$/i, '').trim();
+    if (nameLine) d.ten = nameLine.replace(/^(tên|người nhận)\s*[:：]?\s+/i, '').replace(/^khách\s*[:：]\s*/i, '').replace(/\s*(sđt|sdt|số điện thoại|đt)\s*[:：]?.*$/i, '').trim();
     const pLine = L[pi].replace(RX_PHONE, ' ').replace(/(sđt|sdt|số điện thoại|đt)\s*[:：]?/gi, ' ').replace(/[()+]/g, ' ').trim();
     if (!d.ten && pLine && pLine.length < 40 && !ADDR_RX.test(pLine)) d.ten = pLine.replace(/^[\s,.\-_:]+|[\s,.\-_:]+$/g, '');
     const rest = L.slice(pi + 1);
