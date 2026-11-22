@@ -971,7 +971,7 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
       if (NEG_RX.test(m.text)) lp.neg = { v: m.text.slice(0, 90), d: dmy(m.t) };
     });
     lp.phones = lp.phones.filter((p) => !SHOP_PHONES.includes(p));
-    lp.dan = danLines(hist).slice(-8);
+    lp.dan = danLines(hist).slice(-14);
     return lp;
   }
   function crossOf(A) {
