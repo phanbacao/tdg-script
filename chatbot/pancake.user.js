@@ -482,7 +482,7 @@ khong_phai_khach=true khi người nhắn KHÔNG phải khách mua hàng: nhân 
 gui_anh: "do_tay" khi nên gửi ảnh hướng dẫn đo cổ tay (khách cần tư vấn size mà chưa có số đo), "chuyen_khoan" khi khách muốn chuyển khoản, còn lại để trống.
 
 ## HỒ SƠ KHÁCH (hs_*)
-Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất mà mục HỒ SƠ KHÁCH chưa có hoặc đã thay đổi; không có thì để trống. hs_co_tay (vd "15,5cm"), hs_size (size đang đeo + cảm giác, vd "108 hạt 7li, 4 vòng hơi rộng"), hs_mua_cho_ai, hs_menh (mệnh/tuổi/năm sinh), hs_tam_gia, hs_quan_tam (sản phẩm đang hỏi), hs_viec_dang_do (việc Shop đã hứa mà chưa làm / khách đang chờ), hs_luu_y (khách khó tính, không vui, khách sỉ…), hs_su_kien (1 dòng nếu vừa có sự kiện đáng nhớ: chốt đơn, báo lỗi, đổi size, hỏi sản phẩm mới).`;
+Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất mà mục HỒ SƠ KHÁCH chưa có hoặc đã thay đổi; KHÔNG chép lại điều HỒ SƠ KHÁCH đã ghi; không có gì mới thì để trống hết. hs_co_tay (vd "15,5cm"), hs_size (size đang đeo + cảm giác, vd "108 hạt 7li, 4 vòng hơi rộng"), hs_mua_cho_ai, hs_menh (mệnh/tuổi/năm sinh), hs_tam_gia, hs_quan_tam (sản phẩm đang hỏi), hs_viec_dang_do (việc Shop đã hứa mà chưa làm / khách đang chờ), hs_luu_y (khách khó tính, không vui, khách sỉ…), hs_su_kien (1 dòng nếu vừa có sự kiện đáng nhớ: chốt đơn, báo lỗi, đổi size, hỏi sản phẩm mới).`;
 
   const promoOf = (sh) => String((sh === 'THHX' ? cfg.promoTHHX : cfg.promoSMH) || '').trim();
   const money = (n) => { n = Number(n) || 0; return n >= 1e6 ? (n / 1e6).toString().replace('.', ',') + ' triệu' : Math.round(n / 1000) + 'k'; };
@@ -940,7 +940,7 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
       if (!m.text) return; phonesIn(m.text).forEach((p) => { if (!lp.phones.includes(p)) lp.phones.push(p); });
       const c = findCodes(m.text); if (c.order && !lp.codes.find((x) => x.ma === c.order)) lp.codes.push({ ma: c.order, d: dmy(m.t) });
       const w = m.text.match(WRIST_RX); if (w) lp.wrist = { v: w[0].replace(/^(cổ tay|tay)\s*(mình|em|anh|chị|e|a|c|tôi|của)?\s*(khoảng|tầm|là|được|đo)?\s*/i, ''), d: dmy(m.t) };
-      const l = m.text.match(/\b(4|5|6|7|8|10|12|14|16)\s*li\b/i); if (l) lp.li = { v: m.text.slice(0, 70), d: dmy(m.t) };
+      const l = m.text.match(/\b(4|5|6|7|8|10|12|14|16)\s*li\b/i); if (l) lp.li = { v: l[1] + 'li · "' + m.text.replace(/\s+/g, ' ').slice(0, 50) + '"', d: dmy(m.t) };
       if (NEG_RX.test(m.text)) lp.neg = { v: m.text.slice(0, 90), d: dmy(m.t) };
     });
     lp.phones = lp.phones.filter((p) => !SHOP_PHONES.includes(p));
@@ -994,6 +994,10 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
   function mergeHs(A, hs) {
     if (!A || !A.page || !hs || !Object.keys(hs).length) return;
     const pf = PROF[A.convId] || (PROF[A.convId] = { conv: A.convId, br: A.page.short, name: A.name, inc: {}, ev: [] }); pf.inc = pf.inc || {}; pf.ev = pf.ev || [];
+    const f = pf.full || {}; const same = (a, b) => { a = norm(a); b = norm(b); return !!(a && b) && (a === b || b.includes(a) || similarity(a, b) > 0.75); };
+    const tl = String(f.dong_thoi_gian || '').split('\n').concat(pf.ev.map((e) => e.t));
+    hs = Object.fromEntries(Object.entries(hs).filter(([k, v]) => k === 'su_kien' ? !tl.some((x) => same(v, x)) : !(same(v, f[k]) || same(v, (pf.inc[k] || {}).v))));
+    if (!Object.keys(hs).length) return;
     const d = ddmm(); Object.entries(hs).forEach(([k, v]) => { if (k === 'su_kien') { if (!pf.ev.some((e) => norm(e.t) === norm(v))) pf.ev.push({ d, t: v }); pf.ev = pf.ev.slice(-15); } else pf.inc[k] = { v, d }; });
     pf.at = Date.now(); if (A.lp) { pf.phones = A.lp.phones; pf.orders = A.lp.orders.filter((o) => !o.doi).length; } saveProf(); pushProfile(pf); renderHs();
   }
@@ -1048,6 +1052,8 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
       const dt = new DataTransfer(); dt.items.add(file); ta.focus();
       ta.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
       let preview = false; for (let k = 0; k < 12 && !preview; k++) { await sleep(300); preview = document.querySelectorAll('img[src^="blob:"]').length > before; }
+      const sentNow = async () => { try { const d = await fetchMsgs(A.pid, A.convId, A.custId, 1); const hit = d.msgs.slice(-4).some((m) => !m.k && m.att.some((x) => x.type === 'photo') && Date.parse(m.t + 'Z') > t0 - 90000); if (hit) A.msgs = d.msgs; return hit; } catch (e) { return false; } };
+      if (!preview && await sentNow()) { log(`Đã gửi ${im.label} (Pancake gửi thẳng khi dán)`, 'ok', { conv: A.convId }); return; }
       if (!preview) { await copyImg(kind); log(`Không tự đưa được ${im.label} vào ô chat → đã chép ảnh, nhân viên bấm Ctrl+V rồi Enter`, 'warn', { conv: A.convId }); alert(`Đã chép ${im.label}.\nBấm vào ô chat Pancake, nhấn Ctrl+V rồi Enter để gửi cho khách.`); return; }
       S.imgStage = '⏳ đang gửi ' + im.label; render();
       const btn = document.querySelector('[aria-label="Gửi tin nhắn"]') || document.querySelector('[title="Gửi tin nhắn"]');
@@ -1414,6 +1420,7 @@ position:fixed;right:14px;bottom:10px;z-index:999998;width:470px;max-width:calc(
     if (!cfg.minimized) panel.classList.remove('min');
   }
   function renderCtx() {
+    if (!panel || !els.ctx) return;
     const A = S.active; const sg = curSg();
     if (!A) { els.ctx.innerHTML = '<span class="chip">Chưa mở hội thoại nào</span>'; return; }
     if (!A.page) { els.ctx.innerHTML = `<span class="chip bad">Hội thoại này không thuộc 2 Zalo (${/^\d+$/.test(A.pid) ? 'Facebook' : 'kênh khác'}) → bot bỏ qua</span>`; return; }
