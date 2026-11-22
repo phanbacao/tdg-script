@@ -16,7 +16,7 @@ Cập nhật lần cuối: 22/11/2026
 | In đơn | Cao - In don tiktok | 1.7 | 19/11/2026 | Máy Cao | [cài](https://raw.githubusercontent.com/phanbacao/tdg-script/main/in-don/tiktok.user.js) | Xem ngay ngang hàng mã đơn, chỉ lọc (không tick); viền quanh ô tick; ✕ Note có Hoàn tác 5 giây |
 | Note fulfillment | Note fulfillment shopee | 3.8 | 19/11/2026 | Máy Fulfillment | [cài](https://raw.githubusercontent.com/phanbacao/tdg-script/main/note-fulfillment/shopee.user.js) | Xem ngay ngang hàng mã đơn, chỉ lọc (không tick); viền quanh ô tick; ✕ Note có Hoàn tác 5 giây |
 | Note fulfillment | Note fulfillment tiktok | 1.7 | 19/11/2026 | Máy Fulfillment | [cài](https://raw.githubusercontent.com/phanbacao/tdg-script/main/note-fulfillment/tiktok.user.js) | Xem ngay ngang hàng mã đơn, chỉ lọc (không tick); viền quanh ô tick; ✕ Note có Hoàn tác 5 giây |
-| Chatbot | TDG-pancake (Zalo SMH + THHX trên Pancake) | 1.2.3 | 22/11/2026 | Máy Cao | [cài](https://raw.githubusercontent.com/phanbacao/tdg-script/main/chatbot/pancake.user.js) | Nút 👤 Hồ sơ khách (mọi máy dùng chung, báo khách đã mua/hỏi bên brand kia); nút gửi ảnh đo tay (SMH) và mã QR chuyển khoản; bảng giá web + chính sách Zalo; miễn ship sửa trong ⚙ |
+| Chatbot | TDG-pancake (Zalo SMH + THHX trên Pancake) | 1.2.4 | 22/11/2026 | Máy Cao | [cài](https://raw.githubusercontent.com/phanbacao/tdg-script/main/chatbot/pancake.user.js) | Đọc đủ toàn bộ lịch sử khách; mục 📦 Khách dặn riêng (hộp, tem, lọ…) hiện trong hồ sơ và tin tạo đơn; nút Hồ sơ khách, nút gửi ảnh đo tay / mã QR |
 | Đăng bài FB | Smh dang bai fb kenh 1 | 6.37 | 07/11/2026 | Máy Cao + Máy Giao | [kho riêng](https://github.com/phanbacao/smh-dang-bai-fb) | (đang ở kho smh-dang-bai-fb) |
 
 Không có mã bí mật nào trong kho này.
