@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TDG-pancake
 // @namespace    smh.pancake
-// @version      1.2.2
+// @version      1.2.3
 // @updateURL    https://raw.githubusercontent.com/phanbacao/tdg-script/main/chatbot/pancake.user.js
 // @downloadURL  https://raw.githubusercontent.com/phanbacao/tdg-script/main/chatbot/pancake.user.js
 // @description  Bot gợi ý 3 phương án trả lời khách Zalo (Sơn Mộc Hương & Trầm Hương Hà Xá) trên Pancake – tự học từ nhân viên, tự rà soát mỗi đêm, nghe tin thoại, đọc ảnh, 1 ghi chú/khách, cào hội thoại về Sheet bộ não
@@ -17,7 +17,8 @@
   window.__TDGP_LOADED = true;
 
   // ===================== ⑦ CẤU HÌNH =====================
-  const VERSION = '1.2.2';
+  const VERSION = '1.2.3';
+  const RAW_DIR = 'https://raw.githubusercontent.com/phanbacao/tdg-script/main/chatbot/';
   const RAW_URL = 'https://raw.githubusercontent.com/phanbacao/tdg-script/main/chatbot/pancake.user.js';
   const TITLE = 'TDG-pancake ' + VERSION;
   const DEFAULTS = {
@@ -28,11 +29,13 @@
     scrape: true, scrapeDays: 183, kbRefreshMin: 30, waitMin: 5, minimized: false, panelW: 470,
     learn: true, selfReview: true,
     promoSMH: 'Mua đơn từ 150k tặng 1 hộp nụ trầm mix bách xanh\nMua đơn từ 300k tặng 1 vòng trầm chuẩn mix sen 8li\nMua đơn từ 500k tặng 1 hộp nụ cao cấp\nMua đơn từ 1 triệu tặng 1 hộp nụ đặc biệt',
-    promoTHHX: '',
+    promoTHHX: 'Mua đơn từ 200k tặng 1 hộp vân mây tiêu chuẩn\nMua đơn từ 400k tặng 1 bịch dăm hoặc 1 hộp nụ cao cấp\nMua đơn từ 1 triệu tặng 1 hộp vân mây VIP\nMua đơn từ 2 triệu tặng 1 hộp nụ VIP + 1 bịch dăm',
+    freeshipMin: 100000, hsOpen: false,
   };
   const CFG_KEY = 'tdgp_cfg_v1';
   const cfg = Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(CFG_KEY) || '{}'));
   const saveCfg = () => localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+  if (!cfg.promoInit123) { if (!String(cfg.promoTHHX || '').trim()) cfg.promoTHHX = DEFAULTS.promoTHHX; cfg.promoInit123 = 1; saveCfg(); }
   const PAGES = {
     'pzl_109540369391108006': { brand: 'Sơn Mộc Hương', short: 'SMH' },
     'pzl_51032425718211751': { brand: 'Trầm Hương Hà Xá', short: 'THHX' },
@@ -63,7 +66,7 @@
     if (data !== false) hookSend({ action: 'log', rows: [[new Date().toISOString(), cfg.userName, cls || 'info', msg, data ? JSON.stringify(data).slice(0, 2000) : '']] });
     renderLog();
   }
-  async function timed(name, fn) { const t0 = Date.now(); try { const r = await fn(); const ms = Date.now() - t0; if (ms > 15000) log(`${name} chậm: ${Math.round(ms / 1000)}s`, 'warn'); return r; } catch (e) { log(`${name} lỗi sau ${Math.round((Date.now() - t0) / 1000)}s: ${e.message}`, 'err'); throw e; } }
+  async function timed(name, fn, slowMs) { const t0 = Date.now(); try { const r = await fn(); const ms = Date.now() - t0; if (ms > (slowMs || 15000)) log(`${name} chậm: ${Math.round(ms / 1000)}s`, 'warn'); return r; } catch (e) { log(`${name} lỗi sau ${Math.round((Date.now() - t0) / 1000)}s: ${e.message}`, 'err'); throw e; } }
 
   // ===================== API PANCAKE =====================
   async function api(path, opt) {
@@ -146,15 +149,21 @@
     S.kbStatus = 'đang tải…'; renderCfgInfo();
     await timed('Tải kho tri thức', async () => {
       const base = cfg.sheetPub.replace(/\/(pubhtml|pub).*$/, '');
-      const html = await (await fetch(base + '/pubhtml?t=' + Date.now())).text();
-      const names = [...html.matchAll(/\{name: "([^"]+)", pageUrl: "[^"]*?gid=(\d+)/g)].map((m) => ({ name: m[1], gid: m[2] }));
-      if (!names.length) throw new Error('Không đọc được danh sách bảng của Sheet');
-      const nk = (s) => strip(s).replace(/[^a-z0-9]/g, ''); const tabs = {};
-      for (const w of WANT) {
-        const t = names.find((n) => nk(n.name) === nk(w)) || (w.startsWith('PANCAKE') ? null : names.find((n) => nk(n.name).startsWith(nk(w)) && !/thật|that/i.test(n.name) && !/^pancake/i.test(n.name)));
-        if (!t) continue;
-        tabs[w] = rowsToObjects(parseCSV(await (await fetch(base + '/pub?output=csv&gid=' + t.gid)).text())); await sleep(120);
+      // 1.2.3: danh sách bảng (trang pubhtml rất nặng vì có cả bảng CHAT) chỉ tải lại mỗi 12 tiếng; các bảng tải song song
+      const GK = 'tdgp_kb_gids'; let gc = null; try { gc = JSON.parse(localStorage.getItem(GK) || 'null'); } catch (e) { }
+      let names = gc && gc.base === base && Date.now() - gc.at < 12 * 3600e3 && !force ? gc.names : null;
+      if (!names) {
+        const html = await (await fetch(base + '/pubhtml?t=' + Date.now())).text();
+        names = [...html.matchAll(/\{name: "([^"]+)", pageUrl: "[^"]*?gid=(\d+)/g)].map((m) => ({ name: m[1], gid: m[2] }));
+        if (!names.length) throw new Error('Không đọc được danh sách bảng của Sheet');
+        try { localStorage.setItem(GK, JSON.stringify({ base, at: Date.now(), names })); } catch (e) { }
       }
+      const nk = (s) => strip(s).replace(/[^a-z0-9]/g, ''); const tabs = {};
+      await Promise.all(WANT.map(async (w) => {
+        const t = names.find((n) => nk(n.name) === nk(w)) || (w.startsWith('PANCAKE') ? null : names.find((n) => nk(n.name).startsWith(nk(w)) && !/thật|that/i.test(n.name) && !/^pancake/i.test(n.name)));
+        if (!t) return;
+        try { tabs[w] = rowsToObjects(parseCSV(await (await fetch(base + '/pub?output=csv&gid=' + t.gid)).text())); } catch (e) { }
+      }));
       const kb = { at: Date.now() };
       kb.voice = {}; (tabs['GIỌNG ĐIỆU'] || []).forEach((o) => { kb.voice[col(o, 'thương hiệu')] = col(o, 'hồ sơ giọng'); });
       kb.voiceP = {}; (tabs['PANCAKE – GIỌNG ĐIỆU'] || []).forEach((o) => { kb.voiceP[col(o, 'thương hiệu')] = col(o, 'hồ sơ giọng', 'nội dung'); });
@@ -167,8 +176,9 @@
       kb.promos = (tabs['KHUYẾN MÃI'] || []).filter((o) => col(o, 'đang chạy')).map((o) => ({ th: col(o, 'thương hiệu'), ct: col(o, 'chương trình'), ad: col(o, 'áp dụng') }));
       kb.hasPancake = !!(kb.policiesP.length || Object.keys(kb.voiceP).length);
       S.kb = kb; try { localStorage.setItem(KB_KEY, JSON.stringify(kb)); } catch (e) { }
+      if (!tabs['PANCAKE – GIÁ'] && names === (gc || {}).names) localStorage.removeItem(GK);
       S.kbStatus = kbSummary(); log('Đã tải kho: ' + S.kbStatus, 'ok', false);
-    }).catch((e) => { S.kbStatus = 'lỗi: ' + e.message; if (cached) { S.kb = cached; S.kbStatus += ' (dùng bản cũ)'; } });
+    }, 45000).catch((e) => { S.kbStatus = 'lỗi: ' + e.message; if (cached) { S.kb = cached; S.kbStatus += ' (dùng bản cũ)'; } });
     renderCfgInfo();
   }
   function kbSummary() { const k = S.kb; if (!k) return 'chưa tải'; return `${k.products.length} SP · ${k.faq.length} hỏi–đáp · ${k.policies.length + k.policiesP.length} chính sách${k.hasPancake ? ' · có bộ não Pancake' : ' · kiến thức tạm'}`; }
@@ -193,7 +203,7 @@
       if (!j || !j.ok || !Array.isArray(j.rows)) throw new Error((j && j.error) || 'Apps Script chưa có phần bài học');
       LEARN.list = j.rows.map(rowToLesson).filter(Boolean); LEARN.at = Date.now();
       const ids = new Set(LEARN.list.map((l) => l.id)); LEARN.local = LEARN.local.filter((l) => !ids.has(l.id) && Date.now() - l.ts < 3 * 864e5);
-      applyNotCust(); saveLearn(); renderCfgInfo();
+      applyNotCust(); saveLearn(); renderCfgInfo(); loadProfiles();
     } catch (e) { LEARN.at = Date.now() - 10 * 60000; log('Không tải được bài học: ' + e.message, 'warn', false); }
   }
   function addLesson(o) {
@@ -227,10 +237,11 @@
   const NEG_RX = /thất vọng|lừa đảo|(?<!đánh\s)(?<!\p{L})(lừa|chán|bực)(?!\p{L})|tệ quá|quá tệ|không bao giờ mua|ko mua nữa|không mua nữa|làm ăn kiểu|kém quá|1 sao|một sao|phốt|báo cáo shop/iu;
   const HAPPY_RX = /cảm ơn|cám ơn|thanks|tks|ok|oke|tốt|đẹp|ưng|thích|hài lòng|nhận được rồi|❤|👍|🥰|😍/i;
   async function buildPairs() {
-    const out = [];
+    const out = []; const idx = {};
     await DB.each('conv', (c) => {
       if (!c.msgs) return;
       const ms = c.msgs.filter((m) => m.k !== 2 && (m.text || m.att));
+      try { const phs = new Set(); let ords = 0; const seenV = new Set(); ms.forEach((m) => { if (m.k === 1 && m.text) phonesIn(m.text).forEach((x) => phs.add(x)); if (m.k === 0 && m.text && isOrderBlock(m.text)) { const d = parseOrderBlock(m.text); if (d) { if (d.sdt) phs.add(d.sdt); const kv = norm(d.viec).slice(0, 50); if (!seenV.has(kv) && !/^(đổi|thu hồi|gửi bù|bù)/i.test(d.viec || '')) { seenV.add(kv); ords++; } } } }); phs.forEach((x) => { if (!SHOP_PHONES.includes(x)) (idx[x] = idx[x] || []).push({ conv: c.id, br: c.br, name: c.name, orders: ords, lastT: c.t }); }); } catch (e) { }
       const orderIdx = ms.findIndex((m) => m.k === 0 && m.text && isOrderBlock(m.text));
       const custs = ms.filter((m) => m.k === 1 && m.text);
       const neg = custs.some((m) => NEG_RX.test(m.text));
@@ -245,6 +256,7 @@
       }
     });
     PAIRS = out.slice(-20000);
+    Object.keys(PHONE_IDX).forEach((k) => delete PHONE_IDX[k]); Object.assign(PHONE_IDX, idx);
     PSTAT = { chot: PAIRS.filter((p) => p.res === 'chốt').length, vui: PAIRS.filter((p) => p.res === 'vui').length, xau: PAIRS.filter((p) => p.res === 'xấu').length };
     log(`Đã nạp ${PAIRS.length} cặp hỏi–đáp từ chat cũ (${PSTAT.chot} dẫn tới chốt đơn, ${PSTAT.vui} khách hài lòng, ${PSTAT.xau} bị loại vì khách không vui)`, '', false);
   }
@@ -254,8 +266,9 @@
   const RX_SHOPEE = /\b\d{6}[A-Z0-9]{8}\b/, RX_TIKTOK = /\b5\d{17}\b/, RX_TRACK = /\b(SPXVN\d{8,}[A-Z]?|VNGH\d{6,}[A-Z]?|GHN[A-Z0-9]{6,}|GHTK[A-Z0-9.]{6,}|\d{12}LEX)\b/i;
   const RX_PHONE = /(?<!\d)(?:\(?\+?84\)?|0)(?:[\s.\-]?\d){9}(?!\d)/g;
   // Địa chỉ + SĐT của Shop: KHÔNG BAO GIỜ là thông tin khách
-  const SHOP_PHONES = ['0935907634', '0762222448', '0774222448'];
-  const SHOP_ADDR_RX = /3\s*\/\s*29\s*e?\b|182\s*(\/\s*3\s*\/\s*29|lã xuân oai)|lã xuân oai[^\n]{0,20}\b182\b|đường\s*(số\s*)?182[^\n]{0,40}tăng nhơn|76\s*đường\s*(số\s*)?2[^\n]{0,40}vạn phúc/i;
+  const SHOP_PHONES = ['0935907634', '0762222448', '0774222448', '0962222448'];
+  const SHOP_NAME_RX = /phan\s*b[aá]\s*c(a|ao)\b|^shop\b|sơn mộc hương|trầm hương hà xá/i;
+  const SHOP_ADDR_RX = /3\s*\/\s*29\s*e?\b|182\s*(\/\s*3\s*\/\s*29|lã xuân oai)|lã xuân oai[^\n]{0,20}\b182\b|đường\s*(số\s*)?182[^\n]{0,40}tăng nhơn|76\s*đường\s*(số\s*)?2[^\n]{0,40}vạn phúc|15\s*\/\s*15[^\n]{0,30}tăng phú/i;
   const isShopAddr = (t) => SHOP_ADDR_RX.test(String(t || ''));
   const ADDR_RX = /(phường|xã|quận|huyện|tỉnh|thành phố|tp\.?\s|thị xã|thị trấn|thôn|ấp|khu phố|\bkp\b|khóm|đường|hẻm|ngõ|ngách|số nhà|\bsn\b|tổ \d|chung cư|toà|tòa|lô |\d+\s*\/\s*\d+)/i;
   const CHAT_LINE_RX = /^(dạ|vâng|hôm nay|nay shop|nhờ|cảm ơn|shop (gửi|sẽ|lên|đi)|mình|bạn ơi|anh ơi|chị ơi)(\s|$)|dự kiến|nhận được (hàng|ạ)|kiểm tra (giúp|xem)|đúng chưa|nha ạ$/i;
@@ -317,7 +330,7 @@
     }
     if (!out.dc) { const loc = (msgs || []).filter((m) => m.k).flatMap((m) => m.att || []).filter((a) => a.type === 'location' && a.desc).pop(); if (loc) { out.dc = loc.desc; out.from.push('vị trí khách gửi'); } }
     if (!out.ten) { const m = custText.match(/(?:tên(?: đơn vị| người nhận)?|người nhận)\s*[:：]\s*([^\n,]{2,40}?)(?=\s*(?:sđt|sdt|số điện thoại|đt\b|địa chỉ|đ\/c|\bdc\b|[,\n]|\d{3})|\s*$)/im); if (m) out.ten = m[1].trim(); }
-    if (isShopAddr(out.dc)) out.dc = '';
+    if (isShopAddr(out.dc)) out.dc = ''; if (SHOP_NAME_RX.test(out.ten || '')) out.ten = '';
     if (SHOP_PHONES.includes(out.sdt)) out.sdt = '';
     learnedFix(out);
     return out;
@@ -361,7 +374,7 @@
   // Chạy đua: model trong ⚙ trước; sau 6 giây chưa xong thì gọi thêm flash-lite-latest; sau 14 giây gọi thêm flash-latest. Model nào báo 404 thì bỏ qua cho đến khi tải lại trang.
   const GEMINI_RACE = [{ model: null, delay: 0 }, { model: 'gemini-flash-lite-latest', delay: 3000 }, { model: 'gemini-flash-latest', delay: 8000 }, { model: 'gemini-3.8-flash', delay: 15000 }];
   const DEAD_MODELS = new Set();
-  const OUT_SCHEMA = { type: 'OBJECT', properties: { reply_1: { type: 'STRING' }, kieu_1: { type: 'STRING' }, reply_2: { type: 'STRING' }, kieu_2: { type: 'STRING' }, reply_3: { type: 'STRING' }, kieu_3: { type: 'STRING' }, goi_khach: { type: 'STRING' }, tinh_huong: { type: 'STRING' }, mo_the_don: { type: 'BOOLEAN' }, chuyen_nguoi: { type: 'BOOLEAN' }, ly_do: { type: 'STRING' }, mo_ta_anh: { type: 'STRING' }, don_ten: { type: 'STRING' }, don_sdt: { type: 'STRING' }, don_dia_chi: { type: 'STRING' }, don_ma_san: { type: 'STRING' }, don_viec: { type: 'STRING' }, don_qua: { type: 'STRING' }, don_thu: { type: 'STRING' }, bao_hanh_tom_tat: { type: 'STRING' }, nhom: { type: 'STRING' }, khong_phai_khach: { type: 'BOOLEAN' }, loai_hoi_thoai: { type: 'STRING' } }, required: ['reply_1', 'reply_2', 'reply_3', 'goi_khach', 'mo_the_don'] };
+  const OUT_SCHEMA = { type: 'OBJECT', properties: { reply_1: { type: 'STRING' }, kieu_1: { type: 'STRING' }, reply_2: { type: 'STRING' }, kieu_2: { type: 'STRING' }, reply_3: { type: 'STRING' }, kieu_3: { type: 'STRING' }, goi_khach: { type: 'STRING' }, tinh_huong: { type: 'STRING' }, mo_the_don: { type: 'BOOLEAN' }, chuyen_nguoi: { type: 'BOOLEAN' }, ly_do: { type: 'STRING' }, mo_ta_anh: { type: 'STRING' }, don_ten: { type: 'STRING' }, don_sdt: { type: 'STRING' }, don_dia_chi: { type: 'STRING' }, don_ma_san: { type: 'STRING' }, don_viec: { type: 'STRING' }, don_qua: { type: 'STRING' }, don_thu: { type: 'STRING' }, bao_hanh_tom_tat: { type: 'STRING' }, nhom: { type: 'STRING' }, khong_phai_khach: { type: 'BOOLEAN' }, loai_hoi_thoai: { type: 'STRING' }, gui_anh: { type: 'STRING' }, hs_co_tay: { type: 'STRING' }, hs_size: { type: 'STRING' }, hs_mua_cho_ai: { type: 'STRING' }, hs_menh: { type: 'STRING' }, hs_tam_gia: { type: 'STRING' }, hs_quan_tam: { type: 'STRING' }, hs_viec_dang_do: { type: 'STRING' }, hs_luu_y: { type: 'STRING' }, hs_su_kien: { type: 'STRING' } }, required: ['reply_1', 'reply_2', 'reply_3', 'goi_khach', 'mo_the_don'] };
   async function callGemini(systemText, userText, images, onModel) {
     if (!cfg.geminiKey) throw new Error('Chưa nhập key Gemini (⚙)');
     const parts = [{ text: userText }].concat(images || []);
@@ -414,7 +427,10 @@ Shop tự xưng "Shop" (khi chủ động nhắn khách sàn lần đầu đư�
 - Dùng "để mộc" (KHÔNG "nguyên mộc"). "Để mộc, không keo sáp" chỉ nói cho vòng trầm hương, không nói cho bách xanh. Không nói "tự nhiên" cho trầm chuẩn.
 - Chỉ trả lời đúng điều khách hỏi, không dán mô tả dài, không quảng cáo thêm, không chào lại nếu đã chào.
 - Khách gửi nhiều tin chưa trả lời: đọc hết, trả lời đủ ý trong 1 tin. Khách gửi ảnh thì nói đúng về ảnh (sản phẩm, lỗi, mã đơn trong ảnh…). Tin ghi "(tin thoại)" là lời khách nói đã chép lại – coi như khách nhắn chữ.
-- Dòng "[SHOP ĐÃ GỬI N ẢNH SẢN PHẨM]" nghĩa là Shop đã gửi hình mẫu rồi → KHÔNG đề nghị gửi hình nữa, chỉ hỏi khách ưng mẫu nào.
+- Dòng "[SHOP ĐÃ GỬI N ẢNH]" = Shop đã gửi ảnh (ảnh sản phẩm kèm giá, ảnh người mẫu đeo thử, ảnh hướng dẫn đo tay, tem SPX thu hồi, ảnh hướng dẫn trả hàng/đánh giá, ảnh chuyển khoản hoàn tiền…) – đoán loại ảnh theo câu Shop nhắn kèm; KHÔNG đề nghị gửi lại ảnh đó; ảnh sản phẩm thì hỏi khách ưng mẫu nào.
+
+## ĐỌC ẢNH KHÁCH GỬI (học từ chat cũ)
+(1) Đo cổ tay bằng tờ tiền / thước dây → tư vấn size (xem cách đọc ở mục BẢO HÀNH). (2) Tem vận chuyển SPX/VNGH → đó là MÃ VẬN ĐƠN; tem có "mã đơn hàng" thì đọc, không thì xin mã đơn trên app. (3) Ảnh màn hình đơn trên app → đọc mã đơn, sản phẩm, size, ngày. (4) Ảnh sản phẩm đã nhận (vỡ, lỗi, sai size, nhạt mùi, đổi màu) → xử lý bảo hành, xin lỗi trước. (5) Ảnh đã đánh giá 5 sao → cảm ơn, tiến hành lên đơn đổi. (6) Ảnh chuyển khoản → xác nhận đúng số tiền thấy trong ảnh, cảm ơn, đơn ghi "Thu cod: 0đ". (7) Ảnh sản phẩm khách muốn mua (chụp bài đăng, hộp/hũ cũ muốn mua lại) → nhận ra sản phẩm, báo giá theo PANCAKE – GIÁ. (8) Ảnh chào hàng, bảng giá vận chuyển, quảng cáo của bên khác → khong_phai_khach.
 - KHÔNG hỏi lại câu Shop đã hỏi trong hội thoại (xem mục SHOP ĐÃ HỎI). Khách chưa trả lời: nhắc nhẹ đúng 1 ý, và nếu Shop đã hỏi cùng 1 ý từ 2 lần → KHÔNG hỏi lần 3, đổi cách: đưa thẳng gợi ý mẫu/tầm giá phù hợp với điều khách đã nói, hoặc đề nghị cách khác (vd đo cổ tay bằng tờ tiền 100k rồi chụp gửi Shop).
 - Tin cuối của khách chỉ là ok / cảm ơn / sticker: cả 3 phương án là câu kết ngắn, khác nhau, không hỏi thêm.
 - KHÔNG tự khẳng định còn/hết hàng: nói "Shop kiểm tra kho rồi báo bạn ngay nha". Không hứa chữa bệnh, đổi vận. Không bịa thông số, chính sách, giá.
@@ -425,7 +441,14 @@ Shop tự xưng "Shop" (khi chủ động nhắn khách sàn lần đầu đư�
 ## BẢO HÀNH / ĐỔI TRẢ (khách mua trên sàn nhắn qua Zalo)
 - Chưa có mã đơn → xin mã đơn hàng trước (khách gửi mã vận đơn SPXVN…/VNGH… thì nhờ gửi mã đơn hàng trên app).
 - Đổi size trong 30 ngày từ khi nhận hàng. Hướng dẫn đo: quấn tờ 100k sát cổ tay, hai mép áp sát, chụp gửi Shop.
-- Size vòng 108: 6li hợp tay ~15,5cm; 7li ~17cm; 8li 18–20cm (vừa khít ~19,5cm); 6li 4 vòng ≈ 8li 5 vòng.
+- Size vòng 108 (quấn 4 vòng): 6li ~15,5cm; 7li ~16–18cm; 8li 18–20cm (vừa khít ~19,5cm). Tay nhỏ có thể đeo 7li quấn 5 vòng (VD cổ tay 13,5cm → 7li quấn 5 vòng). 6li 4 vòng ≈ 8li 5 vòng.
+- Đọc ảnh đo bằng tờ 100k (dài 14,4cm) quấn sát cổ tay: hai mép chồng lên nhau → cổ tay nhỏ hơn 14,4cm; hở 0–2cm → 6li; hở 2–4cm → 7li; hở 4–6cm → 8li (tham khảo, còn tuỳ số vòng quấn). Ảnh đo bằng thước dây → đọc đúng số cm.
+- Khách cần đo size (Zalo SMH): hướng dẫn quấn tờ 100k sát cổ tay như ảnh mẫu rồi chụp gửi Shop; đặt gui_anh="do_tay" để nhân viên gửi ảnh hướng dẫn.
+- Phí ship khi đổi size/đổi trả: khách chịu 25k mỗi chiều (nếu PANCAKE – CHÍNH SÁCH ghi số khác thì theo bảng). Shop có chương trình: khách đánh giá 5 sao đơn hàng trên app (kèm hình ảnh, lời nhận xét) thì được MIỄN PHÍ vận chuyển đổi trả 2 chiều – CHỈ nói với khách sàn đang đổi trả, dùng câu kiểu nhân viên: "Dạ bên Shop có chương trình đánh giá 5 sao sẽ được miễn phí vận chuyển đổi trả 2 chiều, nhờ bạn đánh giá đơn hàng trên app kèm hình ảnh giúp Shop với nha". Không nói chương trình này ở tình huống khác.
+- Đổi cho khách sàn: Shop tạo 2 đơn song song – 1 giao mới, 1 thu hồi (khách đóng sản phẩm cũ vào hộp, viết mã thu hồi SPX lên hộp, đưa shipper; khách GIỮ LẠI quà tặng, chỉ gửi sản phẩm). Hoặc khách bấm trả hàng trên app, lý do "không còn nhu cầu", rồi đặt lại size mới.
+- Đứt dây / cần xâu lại: Shop xâu dây miễn phí, khách chịu phí ship 2 chiều; mỗi vòng có tặng 1m dây dự phòng (dùng được 2 lần) – hỏi khách còn dây dự phòng không.
+- Lỡ đụng nước: lau khô bằng khăn mềm, phơi nắng nhẹ; vòng sậm màu hơn là bình thường, đeo lâu càng bóng và thơm. Vòng nhạt mùi/ẩm: phơi nắng nhẹ cho mùi trở lại; không được thì Shop đổi vòng khác.
+- Đổi lên size lớn hơn: có phí chênh lệch theo giá web (lấy từ PANCAKE – GIÁ; chưa rõ thì "Shop báo phí chênh lệch cho bạn ngay").
 - Cách xử lý: (1) đổi size – Shop tạo 2 đơn song song, 1 giao vòng mới, 1 thu hồi vòng cũ; (2) tháo bớt hạt cho vừa, Shop tặng dây + kim xâu; (3) giữ vòng cũ, mua vòng mới giá ưu đãi; (4) khách nhấn hoàn trên sàn rồi đặt lại size mới.
 - Xâu lại: nút thắt giấu trong hạt, đẩy hạt tìm hạt cứng; 1m dây chia đôi, gập đôi xâu, cột 3 nút rồi giấu vào hạt.
 - Vòng mất mùi: hàng để mộc, mở hộp mùi rõ nhất rồi dịu lại; đeo đều tay, hơi ấm cơ thể giúp thơm, sậm và bóng hơn; hạn chế nước.
@@ -435,7 +458,10 @@ Shop tự xưng "Shop" (khi chủ động nhắn khách sàn lần đầu đư�
 - Cách Shop hay chốt trên Zalo: xin "tên, SĐT, địa chỉ" trong 1 câu; báo "nay Shop đi đơn, tầm 1–3 ngày nhận" (HCM 1–2 ngày, tỉnh xa 2–5 ngày); quà tặng theo mục KHUYẾN MÃI ĐANG CHẠY (nếu có).
 
 ## ĐÁNH GIÁ TRÊN SÀN
-KHÔNG đề nghị tặng quà để đổi đánh giá 5 sao. KHÔNG tự nhờ khách sửa đánh giá.
+Chỉ nhắc đánh giá 5 sao trong đúng tình huống đổi trả của khách sàn (mục trên). KHÔNG tự nhờ khách sửa đánh giá xấu.
+
+## CHUYỂN KHOẢN
+Khách muốn chuyển khoản: "Dạ Shop gửi bạn mã QR chuyển khoản nha, bạn chuyển xong gửi Shop ảnh giúp Shop ạ" và đặt gui_anh="chuyen_khoan" (nhân viên bấm nút gửi ảnh QR). KHÔNG tự gõ số tài khoản. Đơn chuyển khoản trước thì don_thu ghi "Thu cod: 0đ".
 
 ## GIÁ
 Ưu tiên PANCAKE – GIÁ, sau đó mức giá nhân viên từng báo trong CHAT CŨ (cách báo giá, giá khách quen, giá theo kg/số lượng), sau đó giá sàn. Không tự giảm thêm ngoài những gì nhân viên từng áp dụng; chưa chắc thì "Shop kiểm tra rồi báo lại".
@@ -452,9 +478,14 @@ mo_the_don=true khi khách hỏi bảo hành/đổi trả/lỗi hàng hoặc đ�
 
 ## LOẠI HỘI THOẠI
 nhom: "bán hàng" (tư vấn, báo giá, chốt đơn mới) hoặc "bảo hành" (đổi size, lỗi, vỡ, thiếu, thay dây, xâu lại, hỏi đơn đã mua).
-khong_phai_khach=true khi người nhắn KHÔNG phải khách mua hàng: nhân viên nội bộ của Shop (gửi video/tài liệu công việc, báo chuyển khoản nội bộ, trao đổi việc), nhà cung cấp/đối tác (thùng carton, vận chuyển, in ấn, nhập hàng…), tin quảng cáo/spam. loai_hoi_thoai: "khách mua" | "nhân viên nội bộ" | "nhà cung cấp" | "quảng cáo". Không chắc → khong_phai_khach=false.`;
+khong_phai_khach=true khi người nhắn KHÔNG phải khách mua hàng: nhân viên nội bộ của Shop (gửi video/tài liệu công việc, báo chuyển khoản nội bộ, trao đổi việc), nhà cung cấp/đối tác (thùng carton, vận chuyển, in ấn, nhập hàng…), tin quảng cáo/spam. loai_hoi_thoai: "khách mua" | "nhân viên nội bộ" | "nhà cung cấp" | "quảng cáo". Không chắc → khong_phai_khach=false.
+gui_anh: "do_tay" khi nên gửi ảnh hướng dẫn đo cổ tay (khách cần tư vấn size mà chưa có số đo), "chuyen_khoan" khi khách muốn chuyển khoản, còn lại để trống.
+
+## HỒ SƠ KHÁCH (hs_*)
+Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất mà mục HỒ SƠ KHÁCH chưa có hoặc đã thay đổi; không có thì để trống. hs_co_tay (vd "15,5cm"), hs_size (size đang đeo + cảm giác, vd "108 hạt 7li, 4 vòng hơi rộng"), hs_mua_cho_ai, hs_menh (mệnh/tuổi/năm sinh), hs_tam_gia, hs_quan_tam (sản phẩm đang hỏi), hs_viec_dang_do (việc Shop đã hứa mà chưa làm / khách đang chờ), hs_luu_y (khách khó tính, không vui, khách sỉ…), hs_su_kien (1 dòng nếu vừa có sự kiện đáng nhớ: chốt đơn, báo lỗi, đổi size, hỏi sản phẩm mới).`;
 
   const promoOf = (sh) => String((sh === 'THHX' ? cfg.promoTHHX : cfg.promoSMH) || '').trim();
+  const money = (n) => { n = Number(n) || 0; return n >= 1e6 ? (n / 1e6).toString().replace('.', ',') + ' triệu' : Math.round(n / 1000) + 'k'; };
   function buildSystem(page, lastText) {
     const kb = S.kb || { voice: {}, voiceP: {}, policies: [], policiesP: [], groups: [], products: [], faq: [], prices: [], promos: [] };
     const br = page.brand, sh = page.short;
@@ -475,6 +506,7 @@ khong_phai_khach=true khi người nhắn KHÔNG phải khách mua hàng: nhân 
       grps.length ? grps.map((g) => `\n## KIẾN THỨC NHÓM: ${g.nhom}\n${[g.mota, g.thanhphan && 'Thành phần: ' + g.thanhphan, g.quycach && 'Kích thước: ' + g.quycach, g.cachdung && 'Cách dùng: ' + g.cachdung, g.baoquan && 'Bảo quản: ' + g.baoquan].filter(Boolean).join('\n')}`).join('\n') : '',
       prods.length ? `\n## SẢN PHẨM LIÊN QUAN (giá sàn tham khảo)\n${prods.map((p) => `- ${p.tenngan || p.ten} | ${p.gia} | ${p.phanloai}${p.diemrieng ? ' | ' + p.diemrieng : ''}`).join('\n')}` : '',
       faq.length ? `\n## CÂU TRẢ LỜI CHUẨN (ưu tiên dùng)\n${faq.map((q) => `Hỏi: ${q.hoi}\nĐáp: ${q.dap}`).join('\n\n')}` : '',
+      `\n## PHÍ SHIP ĐƠN MỚI (nhân viên sửa trong ⚙)\nĐơn từ ${money(cfg.freeshipMin)} trở lên MIỄN PHÍ SHIP (cả 2 shop); dưới mức này khách trả phí ship (khoảng 20–25k, chưa chắc thì "Shop báo phí ship cho mình ngay"). Đủ mốc thì don_thu ghi "Thu cod: …, miễn phí ship ạ".`,
       lessonsFor(sh, lastText),
       pairs.length ? `\n## NHÂN VIÊN THẬT ĐÃ TRẢ LỜI TRÊN ZALO (bắt chước cách nói, cách báo giá; câu đánh dấu ← đã dẫn tới chốt đơn / khách hài lòng thì ưu tiên học)\n${pairs.map((p) => `Khách: ${p.q}\nShop: ${p.a}${p.res === 'chốt' ? '  ← cuộc này đã chốt đơn' : p.res === 'vui' ? '  ← khách hài lòng' : ''}`).join('\n\n')}` : '',
     ].filter(Boolean).join('\n');
@@ -501,7 +533,9 @@ khong_phai_khach=true khi người nhắn KHÔNG phải khách mua hàng: nhân 
     if (req !== curReq || S.active !== A) return;
     A.msgs = data.msgs; A.notes = data.notes;
     A.info = extractInfo(data.msgs, data.notes);
-    render();
+    try { A.hist = await histOf(A); A.lp = localProfile(A, A.hist); A.cross = crossOf(A); } catch (e) { }
+    if (req !== curReq || S.active !== A) return;
+    render(); setTimeout(() => maybeProfile(A), 2500);
     const last = data.msgs[data.msgs.length - 1];
     const sg = S.sg[A.convId];
     if (sg && last && sg.lastMsgId !== last.id && !last.k) sg.staffReplied = true;
@@ -534,6 +568,7 @@ khong_phai_khach=true khi người nhắn KHÔNG phải khách mua hàng: nhân 
         return;
       }
       out.orig = out.opts.map((o) => o.text);
+      mergeHs(A, out.hs);
       if (S.active && S.active.convId === convId) { S.sg[convId] = out; if (!S.tabManual[convId]) S.tab = out.openDon ? 'don' : 'goi'; if (cfg.autoFill) pickOpt(0, false); }
       else S.sg[convId] = out;
       log(`Soạn xong (${out.sec}s, ${out.model})${out.handoff ? ' · nên chuyển người' : ''}`, 'ok', { conv: convId, opts: out.opts.map((o) => o.text), don: out.don });
@@ -549,7 +584,7 @@ khong_phai_khach=true khi người nhắn KHÔNG phải khách mua hàng: nhân 
     for (const m of auds) { S.stage = 'nghe thoại'; renderZone(); const t = await transcribe(m); if (t) { m.text = (m.text ? m.text + ' ' : '') + '(tin thoại) ' + t; m.voice = true; } }
     S.stage = '';
     const lastCust = msgs.filter((m) => m.k).slice(-4).map((m) => m.text).join(' ');
-    const attLabel = (m) => { const types = m.att.map((a) => a.type); if (!types.length) return ''; if (!m.k && types.includes('photo')) return ` [SHOP ĐÃ GỬI ${types.filter((t) => t === 'photo').length} ẢNH SẢN PHẨM]`; return ' [' + types.map((t) => (t === 'audio' && m.voice ? 'thoại' : t)).join(', ') + ']'; };
+    const attLabel = (m) => { const types = m.att.map((a) => a.type); if (!types.length) return ''; if (!m.k && types.includes('photo')) return ` [SHOP ĐÃ GỬI ${types.filter((t) => t === 'photo').length} ẢNH]`; return ' [' + types.map((t) => (t === 'audio' && m.voice ? 'thoại' : t)).join(', ') + ']'; };
     const transcript = msgs.map((m) => `${m.k ? 'KHÁCH' : 'SHOP'} [${String(m.t).slice(5, 16).replace('T', ' ')}]: ${m.text || ''}${attLabel(m)}`).join('\n');
     const pendIdx = (() => { let i = msgs.length; while (i > 0 && msgs[i - 1].k) i--; return i; })();
     const pend = msgs.slice(pendIdx);
@@ -567,6 +602,7 @@ khong_phai_khach=true khi người nhắn KHÔNG phải khách mua hàng: nhân 
       `THÔNG TIN ĐÃ TRÍCH (hệ thống đọc từ chat/ghi chú – kiểm tra lại):\n${['ten', 'sdt', 'dc', 'ma', 'viec', 'qua', 'thu'].map((k) => `${({ ten: 'Tên', sdt: 'SĐT', dc: 'Địa chỉ', ma: 'Mã đơn sàn', viec: 'Sản phẩm/việc', qua: 'Quà', thu: 'Thu' })[k]}: ${info[k] || '(chưa có)'}`).join('\n')}${info.track ? `\nKhách gửi MÃ VẬN ĐƠN ${info.track} (không phải mã đơn hàng)` : ''}`,
       qrs.length ? `MÃ QR ĐỌC ĐƯỢC TỪ ẢNH: ${qrs.join(' | ')}` : '',
       imgNotes.length ? `ẢNH KHÁCH GỬI (đính kèm bên dưới theo thứ tự): ${imgNotes.join('; ')}. Hãy xem kỹ: ảnh đo cổ tay (tờ tiền quấn tay) → đọc số đo/tư vấn size; ảnh đơn hàng → đọc mã đơn, sản phẩm; ảnh sản phẩm lỗi → mô tả lỗi.` : '',
+      profileText(A) ? `HỒ SƠ KHÁCH (đã biết – KHÔNG hỏi lại; dùng để tư vấn đúng người):\n${profileText(A)}` : '',
       ak.asked.length ? `SHOP ĐÃ HỎI (TUYỆT ĐỐI không hỏi lại):\n${ak.asked.map((q) => '- ' + q).join('\n')}${ak.known.length ? '\nKHÁCH ĐÃ TRẢ LỜI:\n' + ak.known.map((q) => '- ' + q).join('\n') : ''}` : '',
       extra || '',
       `HỘI THOẠI (cũ → mới):\n${transcript}`,
@@ -590,7 +626,7 @@ khong_phai_khach=true khi người nhắn KHÔNG phải khách mua hàng: nhân 
     const aiOrd = (v) => (chot ? v : '');
     const don = { ten: pick(out.don_ten, info.ten), sdt: info.sdt || aiPhone, dc: pick(aiDc, info.dc), ma: info.ma || out.don_ma_san || '', viec: pick(aiOrd(out.don_viec), info.viec), qua: pick(aiOrd(out.don_qua), info.qua), thu: pick(aiOrd(out.don_thu), info.thu) };
     if (don.ma && !findCodes(don.ma).order) don.ma = info.ma || '';
-    if (isShopAddr(don.dc)) don.dc = ''; if (SHOP_PHONES.includes(don.sdt)) don.sdt = '';
+    if (isShopAddr(don.dc)) don.dc = ''; if (SHOP_PHONES.includes(don.sdt)) don.sdt = ''; if (SHOP_NAME_RX.test(don.ten || '')) don.ten = info.ten && !SHOP_NAME_RX.test(info.ten) ? info.ten : '';
     learnedFix(don);
     const nhom = /bảo hành/i.test(out.nhom || '') ? 'bảo hành' : /bán/i.test(out.nhom || '') ? 'bán hàng' : (info.ma || out.bao_hanh_tom_tat ? 'bảo hành' : 'bán hàng');
     return {
@@ -598,6 +634,7 @@ khong_phai_khach=true khi người nhắn KHÔNG phải khách mua hàng: nhân 
       opts: [1, 2, 3].map((k) => ({ text: finishText(out['reply_' + k], pron), kieu: out['kieu_' + k] || '', sent: false })).filter((o) => o.text),
       pron: out.goi_khach || 'bạn', tinh: out.tinh_huong || '', handoff: !!out.chuyen_nguoi, lydo: out.ly_do || '', img: out.mo_ta_anh || '',
       don, bh: out.bao_hanh_tom_tat || '', openDon: !!out.mo_the_don || !!(info.track), track: info.track || '', cur: -1, sent: null, staffReplied: false,
+      guiAnh: /do_tay/.test(out.gui_anh || '') ? 'dotay' : /chuyen_khoan|chuyển/.test(out.gui_anh || '') ? 'qr' : '', hs: ['co_tay', 'size', 'mua_cho_ai', 'menh', 'tam_gia', 'quan_tam', 'viec_dang_do', 'luu_y', 'su_kien'].reduce((o, k) => { const v = String(out['hs_' + k] || '').trim(); if (v && !/^(không|chưa|none|null|-)/i.test(v)) o[k] = v; return o; }, {}),
       nhom, q: (pend.length ? pend.map((m) => m.text || '[' + m.att.map((a) => a.type).join(',') + ']').join(' / ') : lastCust).slice(0, 400),
     };
   }
@@ -870,6 +907,158 @@ khong_phai_khach=true khi người nhắn KHÔNG phải khách mua hàng: nhân 
     await flush(); S.scrape.unsynced = 0; if (pending) log(`Đã đẩy ${pending} tin lên Sheet`, 'ok', false);
   }
 
+  // ===================== HỒ SƠ KHÁCH =====================
+  // Phần đọc bằng quy tắc (đơn đã chốt, SĐT, địa chỉ, số li, cổ tay) chạy ngay, không tốn AI.
+  // Phần AI: tóm tắt đầy đủ 1 lần cho mỗi khách + khi có từ 15 tin mới; còn lại cập nhật kèm trong lượt soạn 3 câu (không tốn thêm lượt).
+  const PROF_KEY = 'tdgp_prof_v1'; const PROF = (() => { try { return JSON.parse(localStorage.getItem(PROF_KEY) || '{}'); } catch (e) { return {}; } })();
+  const saveProf = () => { try { const ks = Object.keys(PROF); if (ks.length > 600) ks.sort((a, b) => (PROF[a].at || 0) - (PROF[b].at || 0)).slice(0, ks.length - 600).forEach((k) => delete PROF[k]); localStorage.setItem(PROF_KEY, JSON.stringify(PROF)); } catch (e) { } };
+  const dmy = (t) => { if (!t) return ''; const d = new Date(typeof t === 'number' ? t : Date.parse(/Z|[+-]\d\d:?\d\d$/.test(String(t)) ? t : String(t) + 'Z')); return isNaN(d) ? '' : pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + (d.getFullYear() !== new Date().getFullYear() ? '/' + String(d.getFullYear()).slice(2) : ''); };
+  const WRIST_RX = /(cổ tay|tay)\s*(mình|em|anh|chị|e|a|c|tôi|của)?\s*(khoảng|tầm|là|được|đo)?\s*\d{2}([.,]\d)?\s*(cm|phân)/i;
+  const PHONE_IDX = {}; // SĐT → các hội thoại đã cào có SĐT đó (để báo khách đã mua/hỏi ở Zalo bên kia)
+  async function histOf(A) {
+    let old = null; try { old = await DB.get('conv', A.convId); } catch (e) { }
+    const map = new Map();
+    ((old && old.msgs) || []).forEach((m) => map.set(m.id, { id: m.id, t: m.t, k: m.k, text: m.text || '', att: typeof m.att === 'string' ? m.att.split(',').filter(Boolean).map((t) => ({ type: t })) : (m.att || []) }));
+    (A.msgs || []).forEach((m) => map.set(m.id, m));
+    return [...map.values()].filter((m) => m.k !== 2).sort((a, b) => (a.t < b.t ? -1 : 1));
+  }
+  const moneyOf = (t) => { const m = String(t || '').match(/(\d+(?:[.,]\d+)*)\s*(k|tr|triệu|đ|vnđ)?/i); if (!m) return 0; let n = Number(m[1].replace(/[.,](?=\d{3}\b)/g, '').replace(',', '.')); const u = (m[2] || '').toLowerCase(); if (u === 'k') n *= 1000; else if (u === 'tr' || u === 'triệu') n *= 1e6; else if (n < 5000) n *= 1000; return n > 0 && n < 1e9 ? n : 0; };
+  function localProfile(A, hist) {
+    const cust = hist.filter((m) => m.k === 1);
+    const lp = { first: (hist[0] || {}).t || '', days: new Set(cust.map((m) => String(m.t).slice(0, 10))).size, nMsg: hist.length, phones: [], addrs: [], ten: '', orders: [], codes: [], li: null, wrist: null, neg: null };
+    const blocks = [];
+    hist.forEach((m) => { if (!m.k && m.text && isOrderBlock(m.text)) blocks.push({ t: m.t, text: m.text }); });
+    (A.notes || []).forEach((n) => { if (isOrderBlock(n.msg)) blocks.push({ t: n.at ? new Date(n.at).toISOString().slice(0, 19) : '', text: n.msg }); });
+    const seen = new Set();
+    blocks.sort((a, b) => (a.t < b.t ? -1 : 1)).forEach((b) => {
+      const d = parseOrderBlock(b.text); if (!d) return; const key = norm(d.viec).slice(0, 60) + '|' + (d.ma || ''); if (seen.has(key)) return; seen.add(key);
+      const c = findCodes(b.text); const doi = /^(đổi|thu hồi|gửi bù|bù)/im.test(d.viec || '');
+      lp.orders.push({ d: dmy(b.t), kenh: c.order ? (c.san === 'tiktok' ? 'TikTok' : 'Shopee') : 'Zalo', ma: d.ma || '', viec: d.viec || '', qua: d.qua || '', thu: d.thu || '', tien: doi ? 0 : moneyOf(d.thu), doi });
+      if (d.sdt && !lp.phones.includes(d.sdt)) lp.phones.push(d.sdt); if (d.dc && !lp.addrs.includes(d.dc)) lp.addrs.push(d.dc); if (d.ten && !SHOP_NAME_RX.test(d.ten)) lp.ten = d.ten;
+    });
+    cust.forEach((m) => {
+      if (!m.text) return; phonesIn(m.text).forEach((p) => { if (!lp.phones.includes(p)) lp.phones.push(p); });
+      const c = findCodes(m.text); if (c.order && !lp.codes.find((x) => x.ma === c.order)) lp.codes.push({ ma: c.order, d: dmy(m.t) });
+      const w = m.text.match(WRIST_RX); if (w) lp.wrist = { v: w[0].replace(/^(cổ tay|tay)\s*(mình|em|anh|chị|e|a|c|tôi|của)?\s*(khoảng|tầm|là|được|đo)?\s*/i, ''), d: dmy(m.t) };
+      const l = m.text.match(/\b(4|5|6|7|8|10|12|14|16)\s*li\b/i); if (l) lp.li = { v: m.text.slice(0, 70), d: dmy(m.t) };
+      if (NEG_RX.test(m.text)) lp.neg = { v: m.text.slice(0, 90), d: dmy(m.t) };
+    });
+    lp.phones = lp.phones.filter((p) => !SHOP_PHONES.includes(p));
+    return lp;
+  }
+  function crossOf(A) {
+    const ph = (A.lp && A.lp.phones) || []; const out = []; const seen = new Set(); if (!ph.length || !A.page) return out;
+    ph.forEach((p) => (PHONE_IDX[p] || []).forEach((x) => { if (x.conv !== A.convId && x.br !== A.page.short && !seen.has(x.conv)) { seen.add(x.conv); out.push(x); } }));
+    Object.values(PROF).forEach((pf) => { if (pf.conv !== A.convId && pf.br && pf.br !== A.page.short && !seen.has(pf.conv) && (pf.phones || []).some((p) => ph.includes(p))) { seen.add(pf.conv); out.push({ conv: pf.conv, br: pf.br, name: pf.name, orders: pf.orders || 0, lastT: pf.at }); } });
+    return out;
+  }
+  const PROF_SCHEMA = { type: 'OBJECT', properties: { xung_ho: { type: 'STRING' }, co_tay: { type: 'STRING' }, size: { type: 'STRING' }, mua_cho_ai: { type: 'STRING' }, menh: { type: 'STRING' }, tam_gia: { type: 'STRING' }, quan_tam: { type: 'STRING' }, bao_hanh: { type: 'STRING' }, viec_dang_do: { type: 'STRING' }, luu_y: { type: 'STRING' }, dong_thoi_gian: { type: 'STRING' } }, required: ['dong_thoi_gian'] };
+  async function geminiJSON(schema, sys, user, images) {
+    const models = [cfg.model || 'gemini-flash-lite-latest', 'gemini-flash-lite-latest', 'gemini-flash-latest'].filter((m, i, a) => a.indexOf(m) === i && !DEAD_MODELS.has(m)); let err;
+    for (const model of models) for (let k = 0; k < 2; k++) {
+      try {
+        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cfg.geminiKey }, body: JSON.stringify({ systemInstruction: { parts: [{ text: sys }] }, contents: [{ role: 'user', parts: [{ text: user }].concat(images || []) }], generationConfig: { temperature: 0.3, maxOutputTokens: 1800, responseMimeType: 'application/json', responseSchema: schema } }) });
+        if (r.status === 429 || r.status === 503) { await sleep(1500 * (k + 1)); throw new Error('Gemini bận ' + r.status); }
+        const j = await r.json(); if (r.status === 404) { DEAD_MODELS.add(model); throw new Error('model không còn'); } if (!r.ok) throw new Error((j.error && j.error.message) || 'HTTP ' + r.status);
+        const t = ((((j.candidates || [])[0] || {}).content || {}).parts || []).map((x) => x.text || '').join(''); return JSON.parse(t);
+      } catch (e) { err = e; if (/không còn/.test(e.message)) break; }
+    }
+    throw err || new Error('Gemini lỗi');
+  }
+  function newSince(A, pf) { const h = A.hist || A.msgs || []; if (!pf || !pf.fullLast) return h.length; const i = h.findIndex((m) => m.id === pf.fullLast); return i < 0 ? Math.max(0, h.length - (pf.fullN || 0)) : h.length - 1 - i; }
+  const needFull = (A) => { const pf = PROF[A.convId]; return !pf || !pf.full || newSince(A, pf) >= 15; };
+  async function buildProfile(A, why) {
+    if (!A || !A.page || !cfg.geminiKey || S.hsBusy) return;
+    S.hsBusy = A.convId; renderHs(); const t0 = Date.now();
+    try {
+      const hist = A.hist || await histOf(A); const lp = A.lp || localProfile(A, hist);
+      const lines = hist.slice(-260).map((m) => `${dmy(m.t)} ${m.k ? 'KHÁCH' : 'SHOP'}: ${String(m.text || '').slice(0, 300)}${(m.att || []).length ? ' [' + m.att.map((a) => a.type).join(',') + ']' : ''}`).join('\n');
+      const photos = (A.msgs || []).filter((m) => m.k).flatMap((m) => m.att.filter((a) => a.type === 'photo' && a.url).map((a) => a.url)).slice(-3);
+      const imgs = []; for (const u of photos) { const ip = await imagePart(u); if (ip) imgs.push(ip); }
+      const sys = `Bạn tóm tắt HỒ SƠ KHÁCH cho nhân viên bán trầm hương (${A.page.brand}) trên Zalo. Đọc toàn bộ hội thoại (cũ → mới, có ngày dd/mm), chỉ ghi điều CÓ THẬT trong hội thoại, KHÔNG đoán. Thông tin mới thay thông tin cũ. Mỗi trường 1 dòng ngắn, cuối dòng ghi (dd/mm) lần gần nhất nhắc tới; không có thì để trống. Tên/SĐT/địa chỉ của Shop (PHAN BA CA, 0962222448, 0935907634, 3/29E đường 182, 76 đường 2 Vạn Phúc) KHÔNG phải của khách.`;
+      const user = `Tên Zalo: ${A.name}\nĐơn hệ thống đọc được: ${lp.orders.map((o) => o.d + ' ' + o.viec.split('\n')[0]).join(' | ') || '(chưa thấy)'}\nGhi chú ô Thông tin: ${(A.notes || []).map((n) => n.msg.split('\n').slice(0, 2).join(' ')).join(' | ') || '(không)'}\n\nHỘI THOẠI:\n${lines}\n\n${imgs.length ? 'Ảnh khách gửi gần đây đính kèm bên dưới (đọc số đo cổ tay nếu là ảnh đo tay bằng tờ tiền/thước).\n' : ''}Trả về: xung_ho (anh/chị/bạn), co_tay, size (size đang đeo + cảm giác rộng/chật), mua_cho_ai, menh (mệnh/tuổi/năm sinh), tam_gia, quan_tam (sản phẩm đang hỏi gần nhất), bao_hanh (mỗi lần 1 dòng "dd/mm – lý do – đã xử lý tới đâu"), viec_dang_do (Shop đã hứa mà chưa làm / khách đang chờ gì), luu_y (khách không vui, khó tính, khách sỉ…), dong_thoi_gian (5–10 dòng "dd/mm – sự kiện" từ cũ đến mới).`;
+      const out = await geminiJSON(PROF_SCHEMA, sys, user, imgs);
+      const pf = PROF[A.convId] || {};
+      Object.assign(pf, { conv: A.convId, br: A.page.short, name: A.name, phones: lp.phones, orders: lp.orders.filter((o) => !o.doi).length, at: Date.now(), full: out, fullAt: Date.now(), fullLast: (hist[hist.length - 1] || {}).id || '', fullN: hist.length, inc: {}, ev: [] });
+      PROF[A.convId] = pf; saveProf(); pushProfile(pf, true);
+      log(`Đã tóm tắt hồ sơ ${A.name} (${Math.round((Date.now() - t0) / 1000)}s · ${why})`, 'ok', false);
+    } catch (e) { log('Tóm tắt hồ sơ lỗi: ' + e.message + ' → lần sau thử lại', 'warn', false); }
+    finally { S.hsBusy = ''; renderHs(); renderCtx(); }
+  }
+  async function maybeProfile(A, tries) {
+    if (!A || S.active !== A || !A.page || notCust[A.convId]) return;
+    if (!needFull(A)) return;
+    if (S.busy || S.hsBusy) { if ((tries || 0) < 10) setTimeout(() => maybeProfile(A, (tries || 0) + 1), 3000); return; }
+    const pf = PROF[A.convId]; buildProfile(A, pf && pf.full ? `có ${newSince(A, pf)} tin mới` : 'lần đầu');
+  }
+  function mergeHs(A, hs) {
+    if (!A || !A.page || !hs || !Object.keys(hs).length) return;
+    const pf = PROF[A.convId] || (PROF[A.convId] = { conv: A.convId, br: A.page.short, name: A.name, inc: {}, ev: [] }); pf.inc = pf.inc || {}; pf.ev = pf.ev || [];
+    const d = ddmm(); Object.entries(hs).forEach(([k, v]) => { if (k === 'su_kien') { if (!pf.ev.some((e) => norm(e.t) === norm(v))) pf.ev.push({ d, t: v }); pf.ev = pf.ev.slice(-15); } else pf.inc[k] = { v, d }; });
+    pf.at = Date.now(); if (A.lp) { pf.phones = A.lp.phones; pf.orders = A.lp.orders.filter((o) => !o.doi).length; } saveProf(); pushProfile(pf); renderHs();
+  }
+  function profileView(A) {
+    const pf = PROF[A.convId] || {}; const f = pf.full || {}; const inc = pf.inc || {}; const lp = A.lp || { orders: [], phones: [], addrs: [], codes: [] };
+    const pick = (k) => (inc[k] ? inc[k].v + ' (' + inc[k].d + ')' : (f[k] || ''));
+    const tl = String(f.dong_thoi_gian || '').split('\n').map((x) => x.trim().replace(/^[-•*]\s*/, '')).filter(Boolean).concat((pf.ev || []).map((e) => e.d + ' – ' + e.t));
+    return { pf, lp, xung_ho: f.xung_ho || '', co_tay: pick('co_tay') || (lp.wrist ? lp.wrist.v + ' (' + lp.wrist.d + ')' : ''), size: pick('size') || (lp.li ? lp.li.v + ' (' + lp.li.d + ')' : ''), mua_cho_ai: pick('mua_cho_ai'), menh: pick('menh'), tam_gia: pick('tam_gia'), quan_tam: pick('quan_tam'), bao_hanh: f.bao_hanh || '', viec_dang_do: pick('viec_dang_do'), luu_y: pick('luu_y') || (lp.neg ? 'Khách từng không vui: "' + lp.neg.v + '" (' + lp.neg.d + ')' : ''), tl };
+  }
+  function profileText(A) {
+    if (!A || !A.page) return ''; const v = profileView(A); const L = []; const buy = v.lp.orders.filter((o) => !o.doi);
+    if (buy.length) L.push(`Đã mua ${buy.length} đơn: ` + buy.slice(-3).map((o) => o.d + ' ' + o.viec.split('\n')[0]).join('; '));
+    [['co_tay', 'Cổ tay'], ['size', 'Size đang đeo'], ['mua_cho_ai', 'Mua cho'], ['menh', 'Mệnh/tuổi'], ['tam_gia', 'Tầm giá'], ['quan_tam', 'Đang quan tâm'], ['viec_dang_do', 'Việc đang dở'], ['luu_y', 'Lưu ý']].forEach(([k, lab]) => { if (v[k]) L.push(lab + ': ' + v[k]); });
+    if (A.cross && A.cross.length) L.push('Khách này cũng nhắn Zalo ' + A.cross.map((x) => x.br + (x.orders ? ` (đã mua ${x.orders} đơn)` : ' (đã hỏi)')).join(', '));
+    return L.join('\n');
+  }
+  const profPushAt = {};
+  function pushProfile(pf, now) {
+    if (!cfg.hook || !pf || !pf.conv) return; if (!now && Date.now() - (profPushAt[pf.conv] || 0) < 90000) return; profPushAt[pf.conv] = Date.now();
+    hookSend({ action: 'profile', rows: [[pf.conv, pf.br || '', pf.name || '', (pf.phones || []).join(' '), new Date(pf.at || Date.now()).toISOString(), JSON.stringify({ full: pf.full || null, inc: pf.inc || {}, ev: pf.ev || [], fullAt: pf.fullAt || 0, fullLast: pf.fullLast || '', fullN: pf.fullN || 0, orders: pf.orders || 0 }).slice(0, 40000)]] });
+  }
+  async function loadProfiles() {
+    if (!cfg.hook) return;
+    try {
+      const j = await (await fetch(cfg.hook + (cfg.hook.includes('?') ? '&' : '?') + 'profiles=1&t=' + Date.now())).json(); if (!j || !j.ok || !Array.isArray(j.rows)) return;
+      let n = 0; j.rows.forEach((r) => { const at = Date.parse(r[4]) || 0; if (!r[0] || (PROF[r[0]] && (PROF[r[0]].at || 0) >= at)) return; let x = {}; try { x = JSON.parse(r[5] || '{}'); } catch (e) { } PROF[r[0]] = Object.assign({ conv: r[0], br: r[1], name: r[2], phones: String(r[3] || '').split(' ').filter(Boolean), at }, x); n++; });
+      if (n) { saveProf(); renderHs(); renderCtx(); }
+    } catch (e) { }
+  }
+
+  // ===================== GỬI ẢNH (hướng dẫn đo tay · mã QR chuyển khoản) =====================
+  const IMG = { dotay: { url: RAW_DIR + 'anh/do-tay-smh.jpg', name: 'huong-dan-do-co-tay.jpg', label: 'ảnh hướng dẫn đo tay', only: 'SMH' }, qr: { url: RAW_DIR + 'anh/qr-chuyen-khoan.jpg', name: 'ma-qr-chuyen-khoan.jpg', label: 'mã QR chuyển khoản' } };
+  const imgCache = {};
+  async function imgFile(kind) { const im = IMG[kind]; if (!imgCache[kind]) { const r = await fetch(im.url + '?v=' + VERSION); const b = await r.blob(); if (!r.ok || !b.size) throw new Error('không tải được ' + im.label); imgCache[kind] = b; } return new File([imgCache[kind]], im.name, { type: 'image/jpeg' }); }
+  async function copyImg(kind) { const f = await imgFile(kind); const bmp = await createImageBitmap(f); const cv = document.createElement('canvas'); cv.width = bmp.width; cv.height = bmp.height; cv.getContext('2d').drawImage(bmp, 0, 0); const png = await new Promise((r) => cv.toBlob(r, 'image/png')); await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]); }
+  function imgHint(A, sg) {
+    if (!A || !A.page) return {}; const pend = pendingOf(A.msgs || []).map((m) => m.text || '').join(' '); const v = profileView(A);
+    return { qr: (sg && sg.guiAnh === 'qr') || /chuyển khoản|\bck\b|stk|số tài khoản|tài khoản ngân hàng|quét mã/i.test(pend), dotay: A.page.short === 'SMH' && ((sg && sg.guiAnh === 'dotay') || (/size|mấy li|bao nhiêu li|rộng|chật|vừa tay|đổi size|cổ tay/i.test(pend) && !v.co_tay)) };
+  }
+  async function sendImage(kind) {
+    const A = S.active; const im = IMG[kind]; if (!A || !A.page || !im || S.sending) return;
+    if (im.only && A.page.short !== im.only) { S.err = 'Ảnh này có logo Sơn Mộc Hương – chỉ gửi ở Zalo SMH'; render(); return; }
+    const nick = domNick(); if (nick && A.name && similarity(nick, A.name) < 0.6) { S.err = `Khung chat đang là "${nick}", không phải "${A.name}" – không gửi`; render(); return; }
+    const ta = chatBox(); if (!ta) { S.err = 'Không tìm thấy ô chat'; render(); return; }
+    const cur = (ta.value || '').trim(); if (cur && !isBotText(cur)) { S.err = 'Ô chat đang có chữ bạn gõ – gửi hoặc xoá chữ đó trước rồi bấm gửi ảnh'; render(); return; }
+    S.sending = true; S.imgStage = '⏳ đang tải ' + im.label; render(); const t0 = Date.now();
+    try {
+      if (cur) setChat(ta, '');
+      const file = await imgFile(kind);
+      const before = document.querySelectorAll('img[src^="blob:"]').length;
+      S.imgStage = '⏳ đang đưa ảnh vào ô chat'; render();
+      const dt = new DataTransfer(); dt.items.add(file); ta.focus();
+      ta.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+      let preview = false; for (let k = 0; k < 12 && !preview; k++) { await sleep(300); preview = document.querySelectorAll('img[src^="blob:"]').length > before; }
+      if (!preview) { await copyImg(kind); log(`Không tự đưa được ${im.label} vào ô chat → đã chép ảnh, nhân viên bấm Ctrl+V rồi Enter`, 'warn', { conv: A.convId }); alert(`Đã chép ${im.label}.\nBấm vào ô chat Pancake, nhấn Ctrl+V rồi Enter để gửi cho khách.`); return; }
+      S.imgStage = '⏳ đang gửi ' + im.label; render();
+      const btn = document.querySelector('[aria-label="Gửi tin nhắn"]') || document.querySelector('[title="Gửi tin nhắn"]');
+      if (btn) btn.click(); else ta.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+      let ok = false; for (let k = 0; k < 6 && !ok; k++) { await sleep(1500); try { const d = await fetchMsgs(A.pid, A.convId, A.custId, 1); ok = d.msgs.slice(-4).some((m) => !m.k && m.att.some((a) => a.type === 'photo') && Date.parse(m.t + 'Z') > t0 - 90000); if (ok) A.msgs = d.msgs; } catch (e) { } }
+      log(ok ? `Đã gửi ${im.label} (${Math.round((Date.now() - t0) / 1000)}s)` : `Đã bấm gửi ${im.label} nhưng chưa thấy ảnh trong hội thoại – kiểm tra giúp`, ok ? 'ok' : 'err', { conv: A.convId });
+      hookSend({ action: 'log', rows: [[new Date().toISOString(), cfg.userName, 'gui-anh', A.page.short + ' ' + A.convId, JSON.stringify({ anh: kind, ok })]] });
+    } catch (e) { S.err = 'Gửi ảnh lỗi: ' + e.message; log('Gửi ảnh lỗi: ' + e.message, 'err'); }
+    finally { S.sending = false; S.imgStage = ''; render(); }
+  }
+
   // ===================== TỰ RÀ SOÁT MỖI ĐÊM =====================
   // Từ 22h: rà soát ngày hôm nay. Trước 22h: nếu hôm qua chưa ai rà soát thì rà soát bù. Apps Script chỉ nhận bản đầu tiên của mỗi ngày (nhiều máy không bị trùng).
   const REV_KEY = 'tdgp_review_v1';
@@ -917,6 +1106,27 @@ khong_phai_khach=true khi người nhắn KHÔNG phải khách mua hàng: nhân 
 
   // ===================== GIAO DIỆN (theo TDG-duoke) =====================
   const css = `
+#tdg .hsb{margin-left:auto;margin-right:4px;border:0;border-radius:8px;padding:3px 9px;background:#fde68a;color:#78350f;font-weight:700;font-size:12px;cursor:pointer}
+#tdg .hsb.on{background:#f59e0b;color:#fff}
+#tdg .hs{background:#fffbeb;border-bottom:2px solid #f59e0b;padding:8px 10px;max-height:46vh;overflow:auto;font-size:12px}
+#tdg .hs .hh{display:flex;align-items:center;gap:6px;color:#92400e}
+#tdg .hs .hh .hu{flex:1;font-size:11px;color:#a16207}
+#tdg .hs .hh a{cursor:pointer;font-weight:700;padding:0 6px;border:1px solid #f59e0b;border-radius:6px}
+#tdg .hs .hsec{background:#fff;border:1px solid #fde68a;border-radius:8px;padding:5px 8px;margin-top:6px}
+#tdg .hs .ht{font-weight:700;color:#0f766e;margin-bottom:2px}
+#tdg .hs .hr{display:flex;gap:6px;padding:1px 0}
+#tdg .hs .hr>span:first-child{color:#64748b;min-width:112px;flex:0 0 112px}
+#tdg .hs .mu{color:#94a3b8}
+#tdg .hs .ok{color:#15803d;font-weight:600}
+#tdg .hs .no{color:#b91c1c}
+#tdg .hs .hpre{white-space:pre-line}
+#tdg .hs .htl{border-left:2px solid #f59e0b;margin-left:4px;padding-left:8px}
+#tdg .hs .hev{padding:1px 0}
+#tdg .hs .hwarn{background:#fee2e2;color:#991b1b;border-radius:6px;padding:4px 7px;margin-top:6px}
+#tdg .hs .hcross{background:#e0f2fe;color:#075985;border-radius:6px;padding:4px 7px;margin-top:6px}
+#tdg .hs .hcross a{cursor:pointer;text-decoration:underline;margin-left:4px}
+#tdg .hs .hsx{color:#94a3b8}
+#tdg #tdg-zact button.ib{flex:0 1 auto;min-width:0}
 #tdg .upd{margin-left:6px;padding:2px 8px;border-radius:10px;background:#16a34a;color:#fff;font-size:11px;font-weight:700;text-decoration:none;cursor:pointer}
 #tdg #tdg-zact{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
 #tdg #tdg-zact:empty{display:none}
@@ -1026,7 +1236,8 @@ position:fixed;right:14px;bottom:10px;z-index:999998;width:470px;max-width:calc(
     panel = document.createElement('div'); panel.id = 'tdg'; if (cfg.minimized) panel.classList.add('min');
     const PW_MIN = 360, pwMax = () => Math.min(980, window.innerWidth - 28);
     panel.innerHTML = `<div class="rz" id="tdg-rz" title="Kéo để co giãn"></div>
-      <div class="hd"><b>${TITLE}</b><span class="br" id="tdg-br" style="display:none"></span><span class="aib" id="tdg-aib">AI…</span><a class="upd" id="tdg-upd" style="display:none" target="_blank" title="Cài bản mới ngay"></a><span class="wb" id="tdg-wb" title="Mở khách chờ tiếp theo (Alt+W)"></span><button class="mn" id="tdg-min">▾ Thu gọn</button></div>
+      <div class="hd"><b>${TITLE}</b><span class="br" id="tdg-br" style="display:none"></span><span class="aib" id="tdg-aib">AI…</span><a class="upd" id="tdg-upd" style="display:none" target="_blank" title="Cài bản mới ngay"></a><span class="wb" id="tdg-wb" title="Mở khách chờ tiếp theo (Alt+W)"></span><button class="hsb" id="tdg-hsbtn" title="Xem hồ sơ khách: đã mua gì, size, việc đang dở…">👤 Hồ sơ khách ▾</button><button class="mn" id="tdg-min">▾ Thu gọn</button></div>
+      <div class="hs" id="tdg-hs" style="display:none"></div>
       <div class="tabs"><div class="tab on" id="tdg-tab-goi">💬 Gợi ý</div><div class="tab" id="tdg-tab-don">📦 Đơn &amp; Bảo hành</div></div>
       <div class="bd">
         <div class="ctx" id="tdg-ctx"></div>
@@ -1068,6 +1279,7 @@ position:fixed;right:14px;bottom:10px;z-index:999998;width:470px;max-width:calc(
           <label>Model</label><input id="c-model">
           <label>Link Sheet bộ não (đã xuất bản)</label><input id="c-sheet">
           <label>Link Apps Script Pancake</label><input id="c-hook" placeholder="https://script.google.com/macros/s/…/exec">
+          <label>Miễn phí ship cho đơn từ (đồng)</label><input id="c-freeship" type="number" min="0" step="10000">
           <label>Khách chờ quá (phút) thì panel nháy đỏ</label><input id="c-wait" type="number" min="1">
           <div class="kb" id="c-kb"></div>
           <div class="sc" id="c-sc"></div>
@@ -1079,12 +1291,13 @@ position:fixed;right:14px;bottom:10px;z-index:999998;width:470px;max-width:calc(
       </div>`;
     document.body.appendChild(panel);
     const $ = (id) => panel.querySelector('#' + id);
-    els = { upd: $('tdg-upd'), zact: $('tdg-zact'), br: $('tdg-br'), aib: $('tdg-aib'), wb: $('tdg-wb'), min: $('tdg-min'), tabGoi: $('tdg-tab-goi'), tabDon: $('tdg-tab-don'), ctx: $('tdg-ctx'), det: $('tdg-det'), detbtn: $('tdg-detbtn'), prev: $('tdg-prev'), next: $('tdg-next'), paneGoi: $('tdg-pane-goi'), paneDon: $('tdg-pane-don'), zone: $('tdg-zone'), zst: $('tdg-zst'), redo: $('tdg-redo'), lines: $('tdg-lines'), flag: $('tdg-flag'), fb: $('tdg-fb'), up: $('tdg-up'), down: $('tdg-down'), outreach: $('tdg-outreach'), chk: $('tdg-chk'), don: $('tdg-don'), copy: $('tdg-copy'), note: $('tdg-note'), donnotes: $('tdg-donnotes'), autonote: $('tdg-autonote'), err: $('tdg-err'), cfg: $('tdg-cfg'), log: $('tdg-log'), opt: [] };
+    els = { hs: $('tdg-hs'), hsbtn: $('tdg-hsbtn'), upd: $('tdg-upd'), zact: $('tdg-zact'), br: $('tdg-br'), aib: $('tdg-aib'), wb: $('tdg-wb'), min: $('tdg-min'), tabGoi: $('tdg-tab-goi'), tabDon: $('tdg-tab-don'), ctx: $('tdg-ctx'), det: $('tdg-det'), detbtn: $('tdg-detbtn'), prev: $('tdg-prev'), next: $('tdg-next'), paneGoi: $('tdg-pane-goi'), paneDon: $('tdg-pane-don'), zone: $('tdg-zone'), zst: $('tdg-zst'), redo: $('tdg-redo'), lines: $('tdg-lines'), flag: $('tdg-flag'), fb: $('tdg-fb'), up: $('tdg-up'), down: $('tdg-down'), outreach: $('tdg-outreach'), chk: $('tdg-chk'), don: $('tdg-don'), copy: $('tdg-copy'), note: $('tdg-note'), donnotes: $('tdg-donnotes'), autonote: $('tdg-autonote'), err: $('tdg-err'), cfg: $('tdg-cfg'), log: $('tdg-log'), opt: [] };
     const applyW = () => { panel.style.width = panel.classList.contains('min') ? '' : Math.max(PW_MIN, Math.min(pwMax(), Number(cfg.panelW) || 470)) + 'px'; };
     applyW(); window.addEventListener('resize', applyW);
     const toggleMin = () => { panel.classList.toggle('min'); cfg.minimized = panel.classList.contains('min'); els.min.textContent = cfg.minimized ? '▴ Mở rộng' : '▾ Thu gọn'; applyW(); saveCfg(); render(); };
     els.min.textContent = cfg.minimized ? '▴ Mở rộng' : '▾ Thu gọn';
     els.min.onclick = (e) => { e.stopPropagation(); toggleMin(); };
+    els.hsbtn.onclick = (e) => { e.stopPropagation(); cfg.hsOpen = !cfg.hsOpen; saveCfg(); renderHs(); if (cfg.hsOpen && S.active) maybeProfile(S.active); };
     els.wb.onclick = (e) => { e.stopPropagation(); nextWaiting(); };
     panel.querySelector('.hd').addEventListener('click', (e) => { if (panel.classList.contains('min') && e.target !== els.min && e.target !== els.wb) toggleMin(); });
     const rz = $('tdg-rz'); let rs = null;
@@ -1119,9 +1332,9 @@ position:fixed;right:14px;bottom:10px;z-index:999998;width:470px;max-width:calc(
     els.don.oninput = () => { if (S.active) S.donEdit[S.active.convId] = els.don.value; };
     // cấu hình
     const C = (id) => $(id);
-    const fillCfg = () => { C('c-auto').checked = !!cfg.autoSuggest; C('c-fill').checked = !!cfg.autoFill; C('c-note').checked = !!cfg.autoNote; C('c-img').checked = !!cfg.readImages; C('c-blink').checked = !!cfg.blink; C('c-scrape').checked = !!cfg.scrape; C('c-learn').checked = !!cfg.learn; C('c-review').checked = !!cfg.selfReview; C('c-promo-smh').value = cfg.promoSMH || ''; C('c-promo-thhx').value = cfg.promoTHHX || ''; C('c-key').value = cfg.geminiKey; C('c-model').value = cfg.model; C('c-sheet').value = cfg.sheetPub; C('c-hook').value = cfg.hook; C('c-wait').value = cfg.waitMin; C('c-user').textContent = cfg.userName || '(đang lấy từ tài khoản Pancake…)'; els.cfg.classList.remove('isdirty'); renderCfgInfo(); };
+    const fillCfg = () => { C('c-auto').checked = !!cfg.autoSuggest; C('c-fill').checked = !!cfg.autoFill; C('c-note').checked = !!cfg.autoNote; C('c-img').checked = !!cfg.readImages; C('c-blink').checked = !!cfg.blink; C('c-scrape').checked = !!cfg.scrape; C('c-learn').checked = !!cfg.learn; C('c-review').checked = !!cfg.selfReview; C('c-promo-smh').value = cfg.promoSMH || ''; C('c-promo-thhx').value = cfg.promoTHHX || ''; C('c-key').value = cfg.geminiKey; C('c-model').value = cfg.model; C('c-sheet').value = cfg.sheetPub; C('c-hook').value = cfg.hook; C('c-wait').value = cfg.waitMin; C('c-freeship').value = cfg.freeshipMin; C('c-user').textContent = cfg.userName || '(đang lấy từ tài khoản Pancake…)'; els.cfg.classList.remove('isdirty'); renderCfgInfo(); };
     const cfgShow = (on) => { els.cfg.classList.toggle('show', on); if (on) fillCfg(); };
-    const applyCfg = () => { const wasScrape = cfg.scrape; cfg.autoSuggest = C('c-auto').checked; cfg.autoFill = C('c-fill').checked; cfg.autoNote = C('c-note').checked; cfg.readImages = C('c-img').checked; cfg.blink = C('c-blink').checked; cfg.scrape = C('c-scrape').checked; cfg.learn = C('c-learn').checked; cfg.selfReview = C('c-review').checked; cfg.promoSMH = C('c-promo-smh').value.trim(); cfg.promoTHHX = C('c-promo-thhx').value.trim(); cfg.geminiKey = C('c-key').value.trim(); cfg.model = C('c-model').value.trim() || DEFAULTS.model; cfg.sheetPub = C('c-sheet').value.trim() || DEFAULTS.sheetPub; cfg.hook = C('c-hook').value.trim(); cfg.waitMin = Number(C('c-wait').value) || DEFAULTS.waitMin; saveCfg(); els.cfg.classList.remove('isdirty'); log('Đã lưu cấu hình', 'ok', false); if (cfg.scrape && !wasScrape) scrapeLoop(); if (cfg.hook) flushHook(); if (!S.kb) loadKB(true); render(); };
+    const applyCfg = () => { const wasScrape = cfg.scrape; cfg.autoSuggest = C('c-auto').checked; cfg.autoFill = C('c-fill').checked; cfg.autoNote = C('c-note').checked; cfg.readImages = C('c-img').checked; cfg.blink = C('c-blink').checked; cfg.scrape = C('c-scrape').checked; cfg.learn = C('c-learn').checked; cfg.selfReview = C('c-review').checked; cfg.promoSMH = C('c-promo-smh').value.trim(); cfg.promoTHHX = C('c-promo-thhx').value.trim(); cfg.geminiKey = C('c-key').value.trim(); cfg.model = C('c-model').value.trim() || DEFAULTS.model; cfg.sheetPub = C('c-sheet').value.trim() || DEFAULTS.sheetPub; cfg.hook = C('c-hook').value.trim(); cfg.waitMin = Number(C('c-wait').value) || DEFAULTS.waitMin; cfg.freeshipMin = Math.max(0, Number(C('c-freeship').value)); if (!C('c-freeship').value) cfg.freeshipMin = DEFAULTS.freeshipMin; saveCfg(); els.cfg.classList.remove('isdirty'); log('Đã lưu cấu hình', 'ok', false); if (cfg.scrape && !wasScrape) scrapeLoop(); if (cfg.hook) flushHook(); if (!S.kb) loadKB(true); render(); };
     panel.querySelector('.cb2').addEventListener('input', () => els.cfg.classList.add('isdirty')); panel.querySelector('.cb2').addEventListener('change', () => els.cfg.classList.add('isdirty'));
     C('tdg-cfgx').onclick = () => { if (els.cfg.classList.contains('isdirty') && !confirm('Có thay đổi chưa lưu. Đóng và bỏ thay đổi?')) return; cfgShow(false); };
     C('c-save').onclick = () => { applyCfg(); cfgShow(false); };
@@ -1148,6 +1361,9 @@ position:fixed;right:14px;bottom:10px;z-index:999998;width:470px;max-width:calc(
       else if (act === 'forcedraft') { if (S.active) { S.force[S.active.convId] = true; resuggest(); } }
       else if (act === 'proactive') resuggest();
       else if (act === 'relearn') { loadLessons(true).then(() => { renderCfgInfo(); }); }
+      else if (act === 'sendimg') sendImage(val);
+      else if (act === 'hsrefresh') { if (S.active) { const pf = PROF[S.active.convId]; if (pf) pf.fullLast = '__'; buildProfile(S.active, 'nhân viên bấm ↻'); } }
+      else if (act === 'opencross') { const x = (S.active && S.active.cross || []).find((y) => y.conv === val); openConv(val, x ? x.name : ''); }
       else if (act === 'reviewnow') { localStorage.removeItem(REV_KEY); selfReviewTick(true); }
     });
     render();
@@ -1163,7 +1379,29 @@ position:fixed;right:14px;bottom:10px;z-index:999998;width:470px;max-width:calc(
   }
   function autosize(ta) { ta.style.height = 'auto'; ta.style.height = Math.max(38, ta.scrollHeight + 2) + 'px'; }
 
-  function render() { if (!panel) return; renderHead(); renderCtx(); renderDet(); renderNav(); renderTabs(); renderZone(); renderFlag(); renderFb(); renderDon(); els.err.textContent = S.err ? '⚠ ' + S.err : ''; }
+  function render() { if (!panel) return; renderHs(); renderHead(); renderCtx(); renderDet(); renderNav(); renderTabs(); renderZone(); renderFlag(); renderFb(); renderDon(); els.err.textContent = S.err ? '⚠ ' + S.err : ''; }
+  function renderHs() {
+    if (!panel || !els.hs) return; els.hsbtn.textContent = '👤 Hồ sơ khách ' + (cfg.hsOpen ? '▴' : '▾'); els.hsbtn.classList.toggle('on', !!cfg.hsOpen);
+    els.hs.style.display = cfg.hsOpen && !panel.classList.contains('min') ? '' : 'none'; if (!cfg.hsOpen) return;
+    const A = S.active; if (!A || !A.page) { els.hs.innerHTML = '<div class="hsx">Mở một khách Zalo để xem hồ sơ</div>'; return; }
+    const v = profileView(A); const lp = v.lp; const pf = v.pf; const busy = S.hsBusy === A.convId;
+    const row = (lab, val, cls) => `<div class="hr"><span>${lab}</span><span class="${val ? (cls || '') : 'mu'}">${val ? esc(val) : 'chưa có'}</span></div>`;
+    const buy = lp.orders.filter((o) => !o.doi), fix = lp.orders.filter((o) => o.doi); const tong = buy.reduce((a, o) => a + (o.tien || 0), 0);
+    const cross = (A.cross || []).map((x) => `<div class="hcross">🔁 Khách này cũng nhắn <b>Zalo ${esc(x.br)}</b> (${esc(x.name || '')}) – ${x.orders ? 'đã mua ' + x.orders + ' đơn' : 'đã hỏi, chưa thấy đơn'}${x.lastT ? ' · gần nhất ' + esc(dmy(x.lastT)) : ''} <a data-act="opencross" data-val="${esc(x.conv)}">mở</a></div>`).join('');
+    const sec = (t, body) => `<div class="hsec"><div class="ht">${t}</div>${body}</div>`;
+    const html = [
+      `<div class="hh"><b>👤 ${esc(A.name || '')}</b><span class="hu">${busy ? '⏳ đang tóm tắt toàn bộ lịch sử…' : pf.at ? 'cập nhật ' + fmtT(pf.at) + ' ' + dmy(pf.at) : 'chưa tóm tắt'}</span><a data-act="hsrefresh" title="Tóm tắt lại toàn bộ lịch sử (1 lượt AI)">↻</a></div>`,
+      cross,
+      sec('1. Nhận diện', row('Khách', lp.first ? `${lp.orders.length || lp.days > 1 ? 'Khách quen' : 'Khách mới'} – nhắn từ ${dmy(lp.first)} (${lp.days} ngày có nhắn)` : '') + row('Xưng hô', v.xung_ho) + row('Tên nhận hàng · SĐT', [lp.ten, lp.phones.join(', ')].filter(Boolean).join(' · ')) + row('Địa chỉ đã dùng', lp.addrs.slice(-2).join(' | ')) + (lp.codes.length ? row('Mã đơn sàn khách gửi', lp.codes.slice(-3).map((c) => c.ma + ' (' + c.d + ')').join(', ')) : '')),
+      sec(`2. Đã mua · ${buy.length} đơn${tong ? ' · khoảng ' + money(tong) : ''}`, buy.length ? buy.slice(-6).map((o) => `<div class="hr"><span>${esc(o.d)} · ${esc(o.kenh)}</span><span>${esc(o.viec.split('\n').join(' + ').slice(0, 120))}${o.qua ? ' · ' + esc(o.qua) : ''}${o.thu ? ' · ' + esc(o.thu.slice(0, 40)) : ''}</span></div>`).join('') : '<div class="mu">Chưa thấy đơn đã chốt trong chat/ghi chú</div>'),
+      sec('3. Số đo &amp; sở thích', row('Cổ tay', v.co_tay, 'ok') + row('Size đang đeo', v.size) + row('Mua cho ai', v.mua_cho_ai) + row('Mệnh / tuổi', v.menh) + row('Tầm giá', v.tam_gia) + row('Đang quan tâm', v.quan_tam)),
+      sec('4. Bảo hành · đổi trả', (fix.length ? fix.map((o) => `<div class="hr"><span>${esc(o.d)}</span><span>${esc(o.viec.split('\n')[0].slice(0, 110))}</span></div>`).join('') : '') + (v.bao_hanh ? `<div class="hpre">${esc(v.bao_hanh)}</div>` : (fix.length ? '' : '<div class="mu">Chưa có</div>'))),
+      sec('5. Việc đang dở', row('Shop đã hứa / khách đang chờ', v.viec_dang_do, 'no')),
+      sec('6. Dòng thời gian (cũ → mới)', v.tl.length ? `<div class="htl">${v.tl.slice(-12).map((x) => `<div class="hev">${esc(x)}</div>`).join('')}</div>` : `<div class="mu">${busy ? 'đang tóm tắt…' : 'chưa tóm tắt – bấm ↻'}</div>`),
+      v.luu_y ? `<div class="hwarn">⚠ ${esc(v.luu_y)}</div>` : '',
+    ].join('');
+    if (els.hs.dataset.h !== html) { els.hs.dataset.h = html; els.hs.innerHTML = html; }
+  }
   function renderHead() {
     const A = S.active; const page = A && A.page;
     els.br.style.display = page ? '' : 'none'; els.br.textContent = page ? 'Zalo ' + page.short : '';
@@ -1195,6 +1433,7 @@ position:fixed;right:14px;bottom:10px;z-index:999998;width:470px;max-width:calc(
       S.kb && !S.kb.hasPancake ? chip('kiến thức tạm', 'att', 'Chưa có bộ não Pancake – đang dùng kho sàn + quy tắc Zalo') : '',
       pendAtt.length ? chip('📎 Khách gửi: ' + esc(pendAtt.join(', ')), 'att') : '',
       sg && sg.handoff ? chip('nên chuyển người', 'bad', sg.lydo) : '',
+      (A.cross || []).length ? chip('🔁 ' + esc(A.cross.map((x) => x.br + (x.orders ? ' đã mua ' + x.orders + ' đơn' : ' đã hỏi')).join(', ')), 'att', 'Trùng SĐT với khách bên Zalo kia – bấm 👤 Hồ sơ khách để xem') : '',
     ].filter(Boolean).join('');
   }
   function renderDet() {
@@ -1239,6 +1478,7 @@ position:fixed;right:14px;bottom:10px;z-index:999998;width:470px;max-width:calc(
       if (nc) z.push('<button class="p" data-act="forcedraft">Vẫn soạn</button><button data-act="iscust">✓ Là khách mua</button>');
       else { if (ended) z.push('<button class="p" data-act="proactive">✍ Soạn câu nhắn chủ động</button>'); z.push('<button data-act="notcust" title="Nhân viên nội bộ, nhà cung cấp, quảng cáo… – bot sẽ nhớ cho mọi máy">🚫 Không phải khách</button>'); }
     }
+    if (A && A.page && !busy) { const h = imgHint(A, sg); const ib = (k, lab) => `<button class="${h[k] ? 'p ib' : 'ib'}" data-act="sendimg" data-val="${k}" ${S.sending ? 'disabled' : ''} title="Gửi luôn ${IMG[k].label} cho khách">${h[k] ? '⭐ ' : ''}📎 ${lab}</button>`; z.push((A.page.short === 'SMH' ? ib('dotay', 'Ảnh đo tay') : '') + ib('qr', 'Mã QR chuyển khoản')); if (S.imgStage) z.push(`<span class="mini">${esc(S.imgStage)}</span>`); }
     const zh = z.join(''); if (els.zact.innerHTML !== zh) els.zact.innerHTML = zh;
   }
   function renderLines(busy, sg) {
@@ -1312,5 +1552,5 @@ position:fixed;right:14px;bottom:10px;z-index:999998;width:470px;max-width:calc(
   if (cfg.scrape) setTimeout(scrapeLoop, rnd(15000, 30000));
   log(`${TITLE} đã chạy`, 'ok', false);
   // Cửa sổ kiểm thử nội bộ (không ảnh hưởng người dùng)
-  window.TDGP = { S, cfg, extractInfo, parseOrderBlock, findCodes, phonesIn, draftFor, fetchMsgs, buildSystem, pairs: () => PAIRS, refreshWaiting, openConv, isClosing, pendingOf, isShopAddr, lessons: allLessons, addLesson, loadLessons, selfReviewTick, notCust, lessonsFor, VERSION };
+  window.TDGP = { S, cfg, extractInfo, parseOrderBlock, findCodes, phonesIn, draftFor, fetchMsgs, buildSystem, pairs: () => PAIRS, refreshWaiting, openConv, isClosing, pendingOf, isShopAddr, lessons: allLessons, addLesson, loadLessons, selfReviewTick, notCust, lessonsFor, VERSION, PROF, PHONE_IDX, localProfile, histOf, profileView, profileText, buildProfile, crossOf, sendImage, imgHint, copyImg };
 })();
