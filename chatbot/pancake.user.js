@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TDG-pancake
 // @namespace    smh.pancake
-// @version      1.2.3
+// @version      1.2.4
 // @updateURL    https://raw.githubusercontent.com/phanbacao/tdg-script/main/chatbot/pancake.user.js
 // @downloadURL  https://raw.githubusercontent.com/phanbacao/tdg-script/main/chatbot/pancake.user.js
 // @description  Bot gợi ý 3 phương án trả lời khách Zalo (Sơn Mộc Hương & Trầm Hương Hà Xá) trên Pancake – tự học từ nhân viên, tự rà soát mỗi đêm, nghe tin thoại, đọc ảnh, 1 ghi chú/khách, cào hội thoại về Sheet bộ não
@@ -17,7 +17,7 @@
   window.__TDGP_LOADED = true;
 
   // ===================== ⑦ CẤU HÌNH =====================
-  const VERSION = '1.2.3';
+  const VERSION = '1.2.4';
   const RAW_DIR = 'https://raw.githubusercontent.com/phanbacao/tdg-script/main/chatbot/';
   const RAW_URL = 'https://raw.githubusercontent.com/phanbacao/tdg-script/main/chatbot/pancake.user.js';
   const TITLE = 'TDG-pancake ' + VERSION;
@@ -306,7 +306,7 @@
     while (rest[i] && !isThu(rest[i]) && !isQua(rest[i]) && !isProd(rest[i]) && !CHAT_LINE_RX.test(rest[i]) && dcL.length < 3) { dcL.push(rest[i].replace(/^(địa chỉ|đ\/c|dc)\s*[:：]?\s*/i, '')); i++; }
     d.dc = dcL.join(', ');
     const viec = [];
-    for (; i < rest.length; i++) { const x = rest[i]; if (isThu(x)) d.thu = d.thu ? d.thu + ' ' + x : x; else if (isQua(x)) d.qua = d.qua ? d.qua + ', ' + x : x; else if (CHAT_LINE_RX.test(x) && !isProd(x)) continue; else viec.push(x); }
+    for (; i < rest.length; i++) { const x = rest[i]; if (/^(đóng gói|khách dặn)\s*[:：]/i.test(x)) { d.dong = x.replace(/^(đóng gói|khách dặn)\s*[:：]\s*/i, ''); continue; } if (isThu(x)) d.thu = d.thu ? d.thu + ' ' + x : x; else if (isQua(x)) d.qua = d.qua ? d.qua + ', ' + x : x; else if (CHAT_LINE_RX.test(x) && !isProd(x)) continue; else viec.push(x); }
     d.viec = viec.join('\n');
     if (isShopAddr(d.dc)) d.dc = '';
     return d;
@@ -374,7 +374,7 @@
   // Chạy đua: model trong ⚙ trước; sau 6 giây chưa xong thì gọi thêm flash-lite-latest; sau 14 giây gọi thêm flash-latest. Model nào báo 404 thì bỏ qua cho đến khi tải lại trang.
   const GEMINI_RACE = [{ model: null, delay: 0 }, { model: 'gemini-flash-lite-latest', delay: 3000 }, { model: 'gemini-flash-latest', delay: 8000 }, { model: 'gemini-3.8-flash', delay: 15000 }];
   const DEAD_MODELS = new Set();
-  const OUT_SCHEMA = { type: 'OBJECT', properties: { reply_1: { type: 'STRING' }, kieu_1: { type: 'STRING' }, reply_2: { type: 'STRING' }, kieu_2: { type: 'STRING' }, reply_3: { type: 'STRING' }, kieu_3: { type: 'STRING' }, goi_khach: { type: 'STRING' }, tinh_huong: { type: 'STRING' }, mo_the_don: { type: 'BOOLEAN' }, chuyen_nguoi: { type: 'BOOLEAN' }, ly_do: { type: 'STRING' }, mo_ta_anh: { type: 'STRING' }, don_ten: { type: 'STRING' }, don_sdt: { type: 'STRING' }, don_dia_chi: { type: 'STRING' }, don_ma_san: { type: 'STRING' }, don_viec: { type: 'STRING' }, don_qua: { type: 'STRING' }, don_thu: { type: 'STRING' }, bao_hanh_tom_tat: { type: 'STRING' }, nhom: { type: 'STRING' }, khong_phai_khach: { type: 'BOOLEAN' }, loai_hoi_thoai: { type: 'STRING' }, gui_anh: { type: 'STRING' }, hs_co_tay: { type: 'STRING' }, hs_size: { type: 'STRING' }, hs_mua_cho_ai: { type: 'STRING' }, hs_menh: { type: 'STRING' }, hs_tam_gia: { type: 'STRING' }, hs_quan_tam: { type: 'STRING' }, hs_viec_dang_do: { type: 'STRING' }, hs_luu_y: { type: 'STRING' }, hs_su_kien: { type: 'STRING' } }, required: ['reply_1', 'reply_2', 'reply_3', 'goi_khach', 'mo_the_don'] };
+  const OUT_SCHEMA = { type: 'OBJECT', properties: { reply_1: { type: 'STRING' }, kieu_1: { type: 'STRING' }, reply_2: { type: 'STRING' }, kieu_2: { type: 'STRING' }, reply_3: { type: 'STRING' }, kieu_3: { type: 'STRING' }, goi_khach: { type: 'STRING' }, tinh_huong: { type: 'STRING' }, mo_the_don: { type: 'BOOLEAN' }, chuyen_nguoi: { type: 'BOOLEAN' }, ly_do: { type: 'STRING' }, mo_ta_anh: { type: 'STRING' }, don_ten: { type: 'STRING' }, don_sdt: { type: 'STRING' }, don_dia_chi: { type: 'STRING' }, don_ma_san: { type: 'STRING' }, don_viec: { type: 'STRING' }, don_qua: { type: 'STRING' }, don_thu: { type: 'STRING' }, bao_hanh_tom_tat: { type: 'STRING' }, nhom: { type: 'STRING' }, khong_phai_khach: { type: 'BOOLEAN' }, loai_hoi_thoai: { type: 'STRING' }, gui_anh: { type: 'STRING' }, hs_co_tay: { type: 'STRING' }, hs_size: { type: 'STRING' }, hs_mua_cho_ai: { type: 'STRING' }, hs_menh: { type: 'STRING' }, hs_tam_gia: { type: 'STRING' }, hs_quan_tam: { type: 'STRING' }, hs_viec_dang_do: { type: 'STRING' }, hs_luu_y: { type: 'STRING' }, hs_dan_rieng: { type: 'STRING' }, hs_su_kien: { type: 'STRING' } }, required: ['reply_1', 'reply_2', 'reply_3', 'goi_khach', 'mo_the_don'] };
   async function callGemini(systemText, userText, images, onModel) {
     if (!cfg.geminiKey) throw new Error('Chưa nhập key Gemini (⚙)');
     const parts = [{ text: userText }].concat(images || []);
@@ -482,7 +482,7 @@ khong_phai_khach=true khi người nhắn KHÔNG phải khách mua hàng: nhân 
 gui_anh: "do_tay" khi nên gửi ảnh hướng dẫn đo cổ tay (khách cần tư vấn size mà chưa có số đo), "chuyen_khoan" khi khách muốn chuyển khoản, còn lại để trống.
 
 ## HỒ SƠ KHÁCH (hs_*)
-Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất mà mục HỒ SƠ KHÁCH chưa có hoặc đã thay đổi; KHÔNG chép lại điều HỒ SƠ KHÁCH đã ghi; không có gì mới thì để trống hết. hs_co_tay (vd "15,5cm"), hs_size (size đang đeo + cảm giác, vd "108 hạt 7li, 4 vòng hơi rộng"), hs_mua_cho_ai, hs_menh (mệnh/tuổi/năm sinh), hs_tam_gia, hs_quan_tam (sản phẩm đang hỏi), hs_viec_dang_do (việc Shop đã hứa mà chưa làm / khách đang chờ), hs_luu_y (khách khó tính, không vui, khách sỉ…), hs_su_kien (1 dòng nếu vừa có sự kiện đáng nhớ: chốt đơn, báo lỗi, đổi size, hỏi sản phẩm mới).`;
+Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất mà mục HỒ SƠ KHÁCH chưa có hoặc đã thay đổi; KHÔNG chép lại điều HỒ SƠ KHÁCH đã ghi; không có gì mới thì để trống hết. hs_co_tay (vd "15,5cm"), hs_size (size đang đeo + cảm giác, vd "108 hạt 7li, 4 vòng hơi rộng"), hs_mua_cho_ai, hs_menh (mệnh/tuổi/năm sinh), hs_tam_gia, hs_quan_tam (sản phẩm đang hỏi), hs_viec_dang_do (việc Shop đã hứa mà chưa làm / khách đang chờ), hs_luu_y (khách khó tính, không vui, khách sỉ…), hs_dan_rieng (khách vừa dặn đóng gói/giao hàng: loại hộp, dán tem hay không, lọ thuỷ tinh…), hs_su_kien (1 dòng nếu vừa có sự kiện đáng nhớ: chốt đơn, báo lỗi, đổi size, hỏi sản phẩm mới).`;
 
   const promoOf = (sh) => String((sh === 'THHX' ? cfg.promoTHHX : cfg.promoSMH) || '').trim();
   const money = (n) => { n = Number(n) || 0; return n >= 1e6 ? (n / 1e6).toString().replace('.', ',') + ' triệu' : Math.round(n / 1000) + 'k'; };
@@ -535,7 +535,12 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
     A.info = extractInfo(data.msgs, data.notes);
     try { A.hist = await histOf(A); A.lp = localProfile(A, A.hist); A.cross = crossOf(A); } catch (e) { }
     if (req !== curReq || S.active !== A) return;
-    render(); setTimeout(() => maybeProfile(A), 2500);
+    render();
+    loadFullHistory(A).then(async (more) => {
+      if (S.active !== A) return;
+      if (more) { try { A.hist = await histOf(A); A.lp = localProfile(A, A.hist); A.cross = crossOf(A); const pf = PROF[A.convId]; if (pf && pf.full && (pf.fullN || 0) < A.hist.length - 5) pf.fullLast = ''; } catch (e) { } render(); }
+      setTimeout(() => maybeProfile(A), 1500);
+    });
     const last = data.msgs[data.msgs.length - 1];
     const sg = S.sg[A.convId];
     if (sg && last && sg.lastMsgId !== last.id && !last.k) sg.staffReplied = true;
@@ -634,7 +639,7 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
       opts: [1, 2, 3].map((k) => ({ text: finishText(out['reply_' + k], pron), kieu: out['kieu_' + k] || '', sent: false })).filter((o) => o.text),
       pron: out.goi_khach || 'bạn', tinh: out.tinh_huong || '', handoff: !!out.chuyen_nguoi, lydo: out.ly_do || '', img: out.mo_ta_anh || '',
       don, bh: out.bao_hanh_tom_tat || '', openDon: !!out.mo_the_don || !!(info.track), track: info.track || '', cur: -1, sent: null, staffReplied: false,
-      guiAnh: /do_tay/.test(out.gui_anh || '') ? 'dotay' : /chuyen_khoan|chuyển/.test(out.gui_anh || '') ? 'qr' : '', hs: ['co_tay', 'size', 'mua_cho_ai', 'menh', 'tam_gia', 'quan_tam', 'viec_dang_do', 'luu_y', 'su_kien'].reduce((o, k) => { const v = String(out['hs_' + k] || '').trim(); if (v && !/^(không|chưa|none|null|-)/i.test(v)) o[k] = v; return o; }, {}),
+      guiAnh: /do_tay/.test(out.gui_anh || '') ? 'dotay' : /chuyen_khoan|chuyển/.test(out.gui_anh || '') ? 'qr' : '', hs: ['co_tay', 'size', 'mua_cho_ai', 'menh', 'tam_gia', 'quan_tam', 'viec_dang_do', 'luu_y', 'dan_rieng', 'su_kien'].reduce((o, k) => { const v = String(out['hs_' + k] || '').trim(); if (v && !/^(không|chưa|none|null|-)/i.test(v)) o[k] = v; return o; }, {}),
       nhom, q: (pend.length ? pend.map((m) => m.text || '[' + m.att.map((a) => a.type).join(',') + ']').join(' / ') : lastCust).slice(0, 400),
     };
   }
@@ -643,11 +648,12 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
 
   // ===================== ③ ĐƠN & BẢO HÀNH =====================
   const donComplete = (d) => !!(d && d.ten && d.sdt && d.dc && d.viec);
-  function orderText(d, page) {
+  function orderText(d, page, A) {
     const san = d.ma ? (RX_TIKTOK.test(d.ma) ? 'tiktok' : RX_SHOPEE.test(d.ma) ? 'shopee' : '') : '';
     const L = [d.ma ? `${d.ma} ${page.short.toLowerCase()}${san ? ' ' + san : ''}` : `ZALO ${page.short}`, d.ten || '⚠ THIẾU TÊN', d.sdt || '⚠ THIẾU SĐT', d.dc || '⚠ THIẾU ĐỊA CHỈ', d.viec || '⚠ THIẾU SẢN PHẨM'];
     if (d.qua) L.push(/^(tặng|gửi tặng|kèm)/i.test(d.qua) ? d.qua : 'Tặng ' + d.qua);
     if (d.thu) L.push(d.thu);
+    const dong = A ? danOf(A) : ''; if (dong) L.push('Đóng gói: ' + dong);
     return L.join('\n');
   }
   function donOf(A) { const sg = S.sg[A.convId]; if (sg && sg.don) return sg.don; const i = A.info || {}; return { ten: i.ten || '', sdt: i.sdt || '', dc: i.dc || '', ma: i.ma || '', viec: i.viec || '', qua: i.qua || '', thu: i.thu || '' }; }
@@ -697,7 +703,7 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
     if (!cfg.autoNote) return; const A = S.active; if (!A || A.convId !== convId) return;
     if (!donComplete(sg.don)) return;
     const mem = noteMem[convId] || { order: '', at: 0 };
-    const txt = orderText(sg.don, A.page); const h = hash(norm(txt));
+    const txt = orderText(sg.don, A.page, A); const h = hash(norm(txt));
     if (h === mem.order || Date.now() - mem.at < 2 * 60000) return;
     const cur = orderNoteOf(A);
     if ((A.notes || []).some((x) => norm(x.msg) === norm(txt))) { mem.order = h; noteMem[convId] = mem; saveNoteMem(); return; }
@@ -710,7 +716,7 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
   const donLearned = new Set();
   function learnDon(A, finalText) {
     if (!A || !A.page || S.donEdit[A.convId] === undefined) return;
-    const botText = orderText(donOf(A), A.page); if (norm(botText) === norm(finalText)) return;
+    const botText = orderText(donOf(A), A.page, A); if (norm(botText) === norm(finalText)) return;
     const k = A.convId + hash(norm(finalText)); if (donLearned.has(k)) return; donLearned.add(k);
     addLesson({ type: 'sửa đơn', br: A.page.short, nhom: (curSg() || {}).nhom || '', bot: botText, a: finalText, why: 'nhân viên sửa tin tạo đơn', conv: A.convId });
   }
@@ -877,14 +883,15 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
       if (!cfg.scrape) return;
       while (userBusy()) { S.scrape.stage = 'tạm dừng (đang gõ/soạn)'; renderCfgInfo(); await sleep(4000); }
       const old = await DB.get('conv', q.id);
-      if (old && old.t === q.t) { S.scrape.done++; S.scrape.msgs += (old.msgs || []).length; continue; }
+      const needAll = !old || !old.complete;
+      if (old && old.t === q.t && !needAll) { S.scrape.done++; S.scrape.msgs += (old.msgs || []).length; continue; }
       S.scrape.stage = `cào ${q.br} ${S.scrape.done + 1}/${queue.length}`; renderCfgInfo();
       try {
-        const d = await fetchMsgs(q.pid, q.id, q.cu, old ? 2 : 8);
+        const d = await fetchMsgs(q.pid, q.id, q.cu, needAll ? 60 : 2);
         const byId = new Map(((old && old.msgs) || []).map((m) => [m.id, m]));
         d.msgs.forEach((m) => { if (!byId.has(m.id)) byId.set(m.id, { id: m.id, t: m.t, k: m.k, text: m.text, att: m.att.map((a) => a.type).join(','), synced: 0 }); });
         const msgs = [...byId.values()].sort((a, b) => (a.t < b.t ? -1 : 1)); const noteHash = hash(d.notes.map((n) => n.msg).join('|'));
-        await DB.put('conv', { id: q.id, pid: q.pid, br: q.br, cu: q.cu, name: q.name, t: q.t, msgs, notes: d.notes, noteHash, notesSynced: old && old.noteHash === noteHash ? old.notesSynced : 0 });
+        await DB.put('conv', { id: q.id, pid: q.pid, br: q.br, cu: q.cu, name: q.name, t: q.t, msgs, notes: d.notes, noteHash, notesSynced: old && old.noteHash === noteHash ? old.notesSynced : 0, complete: needAll ? 1 : (old && old.complete) || 0, completeAt: needAll ? Date.now() : (old && old.completeAt) || 0 });
         S.scrape.msgs += msgs.length;
       } catch (e) { S.scrape.err = q.id + ': ' + e.message; }
       S.scrape.done++; await sleep(rnd(600, 1400));
@@ -915,6 +922,24 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
   const dmy = (t) => { if (!t) return ''; const d = new Date(typeof t === 'number' ? t : Date.parse(/Z|[+-]\d\d:?\d\d$/.test(String(t)) ? t : String(t) + 'Z')); return isNaN(d) ? '' : pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + (d.getFullYear() !== new Date().getFullYear() ? '/' + String(d.getFullYear()).slice(2) : ''); };
   const WRIST_RX = /(cổ tay|tay)\s*(mình|em|anh|chị|e|a|c|tôi|của)?\s*(khoảng|tầm|là|được|đo)?\s*\d{2}([.,]\d)?\s*(cm|phân)/i;
   const PHONE_IDX = {}; // SĐT → các hội thoại đã cào có SĐT đó (để báo khách đã mua/hỏi ở Zalo bên kia)
+  // 1.2.4: lần đầu mở một khách → tải TOÀN BỘ lịch sử từ Pancake (không chỉ 2 trang gần nhất), lưu vào kho để lần sau dùng
+  const fullBusy = {};
+  async function loadFullHistory(A) {
+    if (!A || !A.page || fullBusy[A.convId]) return false;
+    let old = null; try { old = await DB.get('conv', A.convId); } catch (e) { }
+    if (old && old.complete && Date.now() - (old.completeAt || 0) < 30 * 864e5) return false;
+    fullBusy[A.convId] = 1; const t0 = Date.now(); S.hsStage = '⏳ đang đọc toàn bộ lịch sử…'; renderHs();
+    try {
+      const d = await fetchMsgs(A.pid, A.convId, A.custId, 60);
+      const byId = new Map(((old && old.msgs) || []).map((m) => [m.id, m]));
+      d.msgs.forEach((m) => { if (!byId.has(m.id)) byId.set(m.id, { id: m.id, t: m.t, k: m.k, text: m.text, att: m.att.map((a) => a.type).join(','), synced: 0 }); });
+      const msgs = [...byId.values()].sort((a, b) => (a.t < b.t ? -1 : 1)); const added = msgs.length - ((old && old.msgs) || []).length;
+      await DB.put('conv', Object.assign({ id: A.convId, pid: A.pid, br: A.page.short, cu: A.custId, name: A.name, t: '', notes: d.notes, noteHash: '', notesSynced: 0 }, old || {}, { msgs, complete: 1, completeAt: Date.now() }));
+      log(`Đã đọc toàn bộ lịch sử ${A.name}: ${msgs.length} tin từ ${dmy(msgs[0] && msgs[0].t)}${added > 0 ? ' (thêm ' + added + ' tin cũ bot chưa có)' : ''} · ${Math.round((Date.now() - t0) / 1000)}s`, 'ok', false);
+      return added > 0 || !(old && old.complete);
+    } catch (e) { log('Đọc toàn bộ lịch sử lỗi: ' + e.message + ' → dùng tin đang có, lần mở sau thử lại', 'warn', false); return false; }
+    finally { delete fullBusy[A.convId]; S.hsStage = ''; renderHs(); }
+  }
   async function histOf(A) {
     let old = null; try { old = await DB.get('conv', A.convId); } catch (e) { }
     const map = new Map();
@@ -923,6 +948,8 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
     return [...map.values()].filter((m) => m.k !== 2).sort((a, b) => (a.t < b.t ? -1 : 1));
   }
   const moneyOf = (t) => { const m = String(t || '').match(/(\d+(?:[.,]\d+)*)\s*(k|tr|triệu|đ|vnđ)?/i); if (!m) return 0; let n = Number(m[1].replace(/[.,](?=\d{3}\b)/g, '').replace(',', '.')); const u = (m[2] || '').toLowerCase(); if (u === 'k') n *= 1000; else if (u === 'tr' || u === 'triệu') n *= 1e6; else if (n < 5000) n *= 1000; return n > 0 && n < 1e9 ? n : 0; };
+  const DAN_RX = /(hộp gấm|hộp vuông|hộp chữ nhật|hộp trụ|hộp tròn|hộp đỏ|hộp xanh|hộp cao cấp|hộp giấy|lọ thủy tinh|lọ thuỷ tinh|dán tem|không tem|khỏi tem|tem nhãn|thương hiệu|logo|không gửi hộp|khỏi gửi|đừng gửi|đừng ghi|không ghi giá|không để giá|bao bì|gói quà|giấy gói|thiệp)/i;
+  function danLines(hist) { const out = []; hist.forEach((m, i) => { if (m.text && DAN_RX.test(m.text) && !isOrderBlock(m.text)) out.push({ i, d: dmy(m.t), k: m.k, text: m.text.replace(/\s+/g, ' ').slice(0, 160) }); }); return out; }
   function localProfile(A, hist) {
     const cust = hist.filter((m) => m.k === 1);
     const lp = { first: (hist[0] || {}).t || '', days: new Set(cust.map((m) => String(m.t).slice(0, 10))).size, nMsg: hist.length, phones: [], addrs: [], ten: '', orders: [], codes: [], li: null, wrist: null, neg: null };
@@ -944,6 +971,7 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
       if (NEG_RX.test(m.text)) lp.neg = { v: m.text.slice(0, 90), d: dmy(m.t) };
     });
     lp.phones = lp.phones.filter((p) => !SHOP_PHONES.includes(p));
+    lp.dan = danLines(hist).slice(-8);
     return lp;
   }
   function crossOf(A) {
@@ -952,7 +980,7 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
     Object.values(PROF).forEach((pf) => { if (pf.conv !== A.convId && pf.br && pf.br !== A.page.short && !seen.has(pf.conv) && (pf.phones || []).some((p) => ph.includes(p))) { seen.add(pf.conv); out.push({ conv: pf.conv, br: pf.br, name: pf.name, orders: pf.orders || 0, lastT: pf.at }); } });
     return out;
   }
-  const PROF_SCHEMA = { type: 'OBJECT', properties: { xung_ho: { type: 'STRING' }, co_tay: { type: 'STRING' }, size: { type: 'STRING' }, mua_cho_ai: { type: 'STRING' }, menh: { type: 'STRING' }, tam_gia: { type: 'STRING' }, quan_tam: { type: 'STRING' }, bao_hanh: { type: 'STRING' }, viec_dang_do: { type: 'STRING' }, luu_y: { type: 'STRING' }, dong_thoi_gian: { type: 'STRING' } }, required: ['dong_thoi_gian'] };
+  const PROF_SCHEMA = { type: 'OBJECT', properties: { xung_ho: { type: 'STRING' }, co_tay: { type: 'STRING' }, size: { type: 'STRING' }, mua_cho_ai: { type: 'STRING' }, menh: { type: 'STRING' }, tam_gia: { type: 'STRING' }, quan_tam: { type: 'STRING' }, bao_hanh: { type: 'STRING' }, viec_dang_do: { type: 'STRING' }, luu_y: { type: 'STRING' }, dan_rieng: { type: 'STRING' }, dong_thoi_gian: { type: 'STRING' } }, required: ['dong_thoi_gian'] };
   async function geminiJSON(schema, sys, user, images) {
     const models = [cfg.model || 'gemini-flash-lite-latest', 'gemini-flash-lite-latest', 'gemini-flash-latest'].filter((m, i, a) => a.indexOf(m) === i && !DEAD_MODELS.has(m)); let err;
     for (const model of models) for (let k = 0; k < 2; k++) {
@@ -966,20 +994,23 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
     throw err || new Error('Gemini lỗi');
   }
   function newSince(A, pf) { const h = A.hist || A.msgs || []; if (!pf || !pf.fullLast) return h.length; const i = h.findIndex((m) => m.id === pf.fullLast); return i < 0 ? Math.max(0, h.length - (pf.fullN || 0)) : h.length - 1 - i; }
-  const needFull = (A) => { const pf = PROF[A.convId]; return !pf || !pf.full || newSince(A, pf) >= 15; };
+  const needFull = (A) => { const pf = PROF[A.convId]; return !pf || !pf.full || !pf.v124 || newSince(A, pf) >= 15; };
   async function buildProfile(A, why) {
     if (!A || !A.page || !cfg.geminiKey || S.hsBusy) return;
     S.hsBusy = A.convId; renderHs(); const t0 = Date.now();
     try {
       const hist = A.hist || await histOf(A); const lp = A.lp || localProfile(A, hist);
-      const lines = hist.slice(-260).map((m) => `${dmy(m.t)} ${m.k ? 'KHÁCH' : 'SHOP'}: ${String(m.text || '').slice(0, 300)}${(m.att || []).length ? ' [' + m.att.map((a) => a.type).join(',') + ']' : ''}`).join('\n');
+      const fmtL = (m) => `${dmy(m.t)} ${m.k ? 'KHÁCH' : 'SHOP'}: ${String(m.text || '').slice(0, 300)}${(m.att || []).length ? ' [' + m.att.map((a) => a.type).join(',') + ']' : ''}`;
+      const cut = Math.max(0, hist.length - 260);
+      const oldDan = []; danLines(hist.slice(0, cut)).forEach((x) => { [x.i - 1, x.i, x.i + 1].forEach((j) => { if (j >= 0 && j < cut && !oldDan.includes(j)) oldDan.push(j); }); });
+      const lines = (oldDan.length ? `(TIN CŨ HƠN CÓ LỜI DẶN – ${oldDan.length} tin)\n` + oldDan.sort((a, b) => a - b).slice(-90).map((j) => fmtL(hist[j])).join('\n') + `\n(… ${cut} tin cũ đã lược, dưới đây là 260 tin gần nhất)\n` : '') + hist.slice(-260).map(fmtL).join('\n');
       const photos = (A.msgs || []).filter((m) => m.k).flatMap((m) => m.att.filter((a) => a.type === 'photo' && a.url).map((a) => a.url)).slice(-3);
       const imgs = []; for (const u of photos) { const ip = await imagePart(u); if (ip) imgs.push(ip); }
       const sys = `Bạn tóm tắt HỒ SƠ KHÁCH cho nhân viên bán trầm hương (${A.page.brand}) trên Zalo. Đọc toàn bộ hội thoại (cũ → mới, có ngày dd/mm), chỉ ghi điều CÓ THẬT trong hội thoại, KHÔNG đoán. Thông tin mới thay thông tin cũ. Mỗi trường 1 dòng ngắn, cuối dòng ghi (dd/mm) lần gần nhất nhắc tới; không có thì để trống. Tên/SĐT/địa chỉ của Shop (PHAN BA CA, 0962222448, 0935907634, 3/29E đường 182, 76 đường 2 Vạn Phúc) KHÔNG phải của khách.`;
-      const user = `Tên Zalo: ${A.name}\nĐơn hệ thống đọc được: ${lp.orders.map((o) => o.d + ' ' + o.viec.split('\n')[0]).join(' | ') || '(chưa thấy)'}\nGhi chú ô Thông tin: ${(A.notes || []).map((n) => n.msg.split('\n').slice(0, 2).join(' ')).join(' | ') || '(không)'}\n\nHỘI THOẠI:\n${lines}\n\n${imgs.length ? 'Ảnh khách gửi gần đây đính kèm bên dưới (đọc số đo cổ tay nếu là ảnh đo tay bằng tờ tiền/thước).\n' : ''}Trả về: xung_ho (anh/chị/bạn), co_tay, size (size đang đeo + cảm giác rộng/chật), mua_cho_ai, menh (mệnh/tuổi/năm sinh), tam_gia, quan_tam (sản phẩm đang hỏi gần nhất), bao_hanh (mỗi lần 1 dòng "dd/mm – lý do – đã xử lý tới đâu"), viec_dang_do (Shop đã hứa mà chưa làm / khách đang chờ gì), luu_y (khách không vui, khó tính, khách sỉ…), dong_thoi_gian (5–10 dòng "dd/mm – sự kiện" từ cũ đến mới).`;
+      const user = `Tên Zalo: ${A.name}\nĐơn hệ thống đọc được: ${lp.orders.map((o) => o.d + ' ' + o.viec.split('\n')[0]).join(' | ') || '(chưa thấy)'}\nGhi chú ô Thông tin: ${(A.notes || []).map((n) => n.msg.split('\n').slice(0, 2).join(' ')).join(' | ') || '(không)'}\n\nHỘI THOẠI:\n${lines}\n\n${imgs.length ? 'Ảnh khách gửi gần đây đính kèm bên dưới (đọc số đo cổ tay nếu là ảnh đo tay bằng tờ tiền/thước).\n' : ''}Trả về: xung_ho (anh/chị/bạn), co_tay, size (size đang đeo + cảm giác rộng/chật), mua_cho_ai, menh (mệnh/tuổi/năm sinh), tam_gia, quan_tam (sản phẩm đang hỏi gần nhất), bao_hanh (mỗi lần 1 dòng "dd/mm – lý do – đã xử lý tới đâu"), viec_dang_do (Shop đã hứa mà chưa làm / khách đang chờ gì), luu_y (khách không vui, khó tính, khách sỉ…), dan_rieng (lời dặn RIÊNG còn hiệu lực về đóng gói / giao hàng mà Shop đã đồng ý: loại hộp (hộp gấm vuông, hộp đỏ…), có/không dán tem, có/không hộp thương hiệu Shop, lọ thuỷ tinh, ghi giá, gói quà, giờ nhận…; gộp thành 1 dòng ngắn như ghi cho bên đóng gói, kèm (dd/mm) lần gần nhất; lời dặn sau thay lời dặn trước; đọc kỹ cả phần TIN CŨ HƠN CÓ LỜI DẶN), dong_thoi_gian (5–10 dòng "dd/mm – sự kiện" từ cũ đến mới).`;
       const out = await geminiJSON(PROF_SCHEMA, sys, user, imgs);
       const pf = PROF[A.convId] || {};
-      Object.assign(pf, { conv: A.convId, br: A.page.short, name: A.name, phones: lp.phones, orders: lp.orders.filter((o) => !o.doi).length, at: Date.now(), full: out, fullAt: Date.now(), fullLast: (hist[hist.length - 1] || {}).id || '', fullN: hist.length, inc: {}, ev: [] });
+      Object.assign(pf, { conv: A.convId, br: A.page.short, name: A.name, phones: lp.phones, orders: lp.orders.filter((o) => !o.doi).length, at: Date.now(), full: out, fullAt: Date.now(), fullLast: (hist[hist.length - 1] || {}).id || '', fullN: hist.length, from: (hist[0] || {}).t || '', v124: 1, inc: {}, ev: [] });
       PROF[A.convId] = pf; saveProf(); pushProfile(pf, true);
       log(`Đã tóm tắt hồ sơ ${A.name} (${Math.round((Date.now() - t0) / 1000)}s · ${why})`, 'ok', false);
     } catch (e) { log('Tóm tắt hồ sơ lỗi: ' + e.message + ' → lần sau thử lại', 'warn', false); }
@@ -1002,22 +1033,23 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
     pf.at = Date.now(); if (A.lp) { pf.phones = A.lp.phones; pf.orders = A.lp.orders.filter((o) => !o.doi).length; } saveProf(); pushProfile(pf); renderHs();
   }
   function profileView(A) {
-    const pf = PROF[A.convId] || {}; const f = pf.full || {}; const inc = pf.inc || {}; const lp = A.lp || { orders: [], phones: [], addrs: [], codes: [] };
+    const pf = PROF[A.convId] || {}; const f = pf.full || {}; const inc = pf.inc || {}; const lp = A.lp || { orders: [], phones: [], addrs: [], codes: [], dan: [], nMsg: 0 };
     const pick = (k) => (inc[k] ? inc[k].v + ' (' + inc[k].d + ')' : (f[k] || ''));
     const tl = String(f.dong_thoi_gian || '').split('\n').map((x) => x.trim().replace(/^[-•*]\s*/, '')).filter(Boolean).concat((pf.ev || []).map((e) => e.d + ' – ' + e.t));
-    return { pf, lp, xung_ho: f.xung_ho || '', co_tay: pick('co_tay') || (lp.wrist ? lp.wrist.v + ' (' + lp.wrist.d + ')' : ''), size: pick('size') || (lp.li ? lp.li.v + ' (' + lp.li.d + ')' : ''), mua_cho_ai: pick('mua_cho_ai'), menh: pick('menh'), tam_gia: pick('tam_gia'), quan_tam: pick('quan_tam'), bao_hanh: f.bao_hanh || '', viec_dang_do: pick('viec_dang_do'), luu_y: pick('luu_y') || (lp.neg ? 'Khách từng không vui: "' + lp.neg.v + '" (' + lp.neg.d + ')' : ''), tl };
+    return { pf, lp, xung_ho: f.xung_ho || '', co_tay: pick('co_tay') || (lp.wrist ? lp.wrist.v + ' (' + lp.wrist.d + ')' : ''), size: pick('size') || (lp.li ? lp.li.v + ' (' + lp.li.d + ')' : ''), mua_cho_ai: pick('mua_cho_ai'), menh: pick('menh'), tam_gia: pick('tam_gia'), quan_tam: pick('quan_tam'), bao_hanh: f.bao_hanh || '', viec_dang_do: pick('viec_dang_do'), dan_rieng: pick('dan_rieng'), luu_y: pick('luu_y') || (lp.neg ? 'Khách từng không vui: "' + lp.neg.v + '" (' + lp.neg.d + ')' : ''), tl };
   }
+  function danOf(A) { if (!A || !A.page) return ''; const v = profileView(A); return String(v.dan_rieng || '').replace(/\s+/g, ' ').trim(); }
   function profileText(A) {
     if (!A || !A.page) return ''; const v = profileView(A); const L = []; const buy = v.lp.orders.filter((o) => !o.doi);
     if (buy.length) L.push(`Đã mua ${buy.length} đơn: ` + buy.slice(-3).map((o) => o.d + ' ' + o.viec.split('\n')[0]).join('; '));
-    [['co_tay', 'Cổ tay'], ['size', 'Size đang đeo'], ['mua_cho_ai', 'Mua cho'], ['menh', 'Mệnh/tuổi'], ['tam_gia', 'Tầm giá'], ['quan_tam', 'Đang quan tâm'], ['viec_dang_do', 'Việc đang dở'], ['luu_y', 'Lưu ý']].forEach(([k, lab]) => { if (v[k]) L.push(lab + ': ' + v[k]); });
+    [['dan_rieng', 'KHÁCH DẶN RIÊNG (đóng gói/giao)'], ['co_tay', 'Cổ tay'], ['size', 'Size đang đeo'], ['mua_cho_ai', 'Mua cho'], ['menh', 'Mệnh/tuổi'], ['tam_gia', 'Tầm giá'], ['quan_tam', 'Đang quan tâm'], ['viec_dang_do', 'Việc đang dở'], ['luu_y', 'Lưu ý']].forEach(([k, lab]) => { if (v[k]) L.push(lab + ': ' + v[k]); });
     if (A.cross && A.cross.length) L.push('Khách này cũng nhắn Zalo ' + A.cross.map((x) => x.br + (x.orders ? ` (đã mua ${x.orders} đơn)` : ' (đã hỏi)')).join(', '));
     return L.join('\n');
   }
   const profPushAt = {};
   function pushProfile(pf, now) {
     if (!cfg.hook || !pf || !pf.conv) return; if (!now && Date.now() - (profPushAt[pf.conv] || 0) < 90000) return; profPushAt[pf.conv] = Date.now();
-    hookSend({ action: 'profile', rows: [[pf.conv, pf.br || '', pf.name || '', (pf.phones || []).join(' '), new Date(pf.at || Date.now()).toISOString(), JSON.stringify({ full: pf.full || null, inc: pf.inc || {}, ev: pf.ev || [], fullAt: pf.fullAt || 0, fullLast: pf.fullLast || '', fullN: pf.fullN || 0, orders: pf.orders || 0 }).slice(0, 40000)]] });
+    hookSend({ action: 'profile', rows: [[pf.conv, pf.br || '', pf.name || '', (pf.phones || []).join(' '), new Date(pf.at || Date.now()).toISOString(), JSON.stringify({ full: pf.full || null, inc: pf.inc || {}, ev: pf.ev || [], fullAt: pf.fullAt || 0, fullLast: pf.fullLast || '', fullN: pf.fullN || 0, orders: pf.orders || 0, v124: pf.v124 || 0, from: pf.from || '' }).slice(0, 40000)]] });
   }
   async function loadProfiles() {
     if (!cfg.hook) return;
@@ -1128,6 +1160,10 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
 #tdg .hs .hpre{white-space:pre-line}
 #tdg .hs .htl{border-left:2px solid #f59e0b;margin-left:4px;padding-left:8px}
 #tdg .hs .hev{padding:1px 0}
+#tdg .hs .hsrc{font-size:10.5px;color:#94a3b8;margin:2px 0 4px}
+#tdg .hs .hdan{background:#ecfdf5;border:1px solid #6ee7b7;border-radius:8px;padding:6px 8px;margin:4px 0 6px;color:#065f46}
+#tdg .hs .hdan summary{cursor:pointer;font-size:11px;color:#047857;margin-top:3px}
+#tdg .hs .hdan .hq{font-size:11px;color:#334155;padding:1px 0}
 #tdg .hs .hwarn{background:#fee2e2;color:#991b1b;border-radius:6px;padding:4px 7px;margin-top:6px}
 #tdg .hs .hcross{background:#e0f2fe;color:#075985;border-radius:6px;padding:4px 7px;margin-top:6px}
 #tdg .hs .hcross a{cursor:pointer;text-decoration:underline;margin-left:4px}
@@ -1396,8 +1432,10 @@ position:fixed;right:14px;bottom:10px;z-index:999998;width:470px;max-width:calc(
     const cross = (A.cross || []).map((x) => `<div class="hcross">🔁 Khách này cũng nhắn <b>Zalo ${esc(x.br)}</b> (${esc(x.name || '')}) – ${x.orders ? 'đã mua ' + x.orders + ' đơn' : 'đã hỏi, chưa thấy đơn'}${x.lastT ? ' · gần nhất ' + esc(dmy(x.lastT)) : ''} <a data-act="opencross" data-val="${esc(x.conv)}">mở</a></div>`).join('');
     const sec = (t, body) => `<div class="hsec"><div class="ht">${t}</div>${body}</div>`;
     const html = [
-      `<div class="hh"><b>👤 ${esc(A.name || '')}</b><span class="hu">${busy ? '⏳ đang tóm tắt toàn bộ lịch sử…' : pf.at ? 'cập nhật ' + fmtT(pf.at) + ' ' + dmy(pf.at) : 'chưa tóm tắt'}</span><a data-act="hsrefresh" title="Tóm tắt lại toàn bộ lịch sử (1 lượt AI)">↻</a></div>`,
+      `<div class="hh"><b>👤 ${esc(A.name || '')}</b><span class="hu">${S.hsStage ? esc(S.hsStage) : busy ? '⏳ đang tóm tắt toàn bộ lịch sử…' : pf.at ? 'cập nhật ' + fmtT(pf.at) + ' ' + dmy(pf.at) : 'chưa tóm tắt'}</span><a data-act="hsrefresh" title="Tóm tắt lại toàn bộ lịch sử (1 lượt AI)">↻</a></div>`,
       cross,
+      `<div class="hsrc">Đã đọc ${lp.nMsg} tin${lp.first ? ' từ ' + esc(dmy(lp.first)) : ''}${pf.fullN ? ' · hồ sơ AI làm từ ' + pf.fullN + ' tin' : ''}</div>`,
+      (v.dan_rieng || lp.dan.length) ? `<div class="hdan"><b>📦 Khách dặn riêng</b>${v.dan_rieng ? `<div>${esc(v.dan_rieng)}</div>` : ''}${lp.dan.length ? `<details${v.dan_rieng ? '' : ' open'}><summary>Tin gốc (${lp.dan.length})</summary>${lp.dan.map((x) => `<div class="hq">${esc(x.d)} ${x.k ? 'Khách' : 'Shop'}: ${esc(x.text)}</div>`).join('')}</details>` : ''}</div>` : '',
       sec('1. Nhận diện', row('Khách', lp.first ? `${lp.orders.length || lp.days > 1 ? 'Khách quen' : 'Khách mới'} – nhắn từ ${dmy(lp.first)} (${lp.days} ngày có nhắn)` : '') + row('Xưng hô', v.xung_ho) + row('Tên nhận hàng · SĐT', [lp.ten, lp.phones.join(', ')].filter(Boolean).join(' · ')) + row('Địa chỉ đã dùng', lp.addrs.slice(-2).join(' | ')) + (lp.codes.length ? row('Mã đơn sàn khách gửi', lp.codes.slice(-3).map((c) => c.ma + ' (' + c.d + ')').join(', ')) : '')),
       sec(`2. Đã mua · ${buy.length} đơn${tong ? ' · khoảng ' + money(tong) : ''}`, buy.length ? buy.slice(-6).map((o) => `<div class="hr"><span>${esc(o.d)} · ${esc(o.kenh)}</span><span>${esc(o.viec.split('\n').join(' + ').slice(0, 120))}${o.qua ? ' · ' + esc(o.qua) : ''}${o.thu ? ' · ' + esc(o.thu.slice(0, 40)) : ''}</span></div>`).join('') : '<div class="mu">Chưa thấy đơn đã chốt trong chat/ghi chú</div>'),
       sec('3. Số đo &amp; sở thích', row('Cổ tay', v.co_tay, 'ok') + row('Size đang đeo', v.size) + row('Mua cho ai', v.mua_cho_ai) + row('Mệnh / tuổi', v.menh) + row('Tầm giá', v.tam_gia) + row('Đang quan tâm', v.quan_tam)),
@@ -1533,7 +1571,7 @@ position:fixed;right:14px;bottom:10px;z-index:999998;width:470px;max-width:calc(
     const d = donOf(A); const info = A.info || {};
     const li = (lab, v, miss) => `<li><span>${lab}</span>${v ? `<span class="okk" title="${esc(v)}">✓ ${esc(String(v).split('\n')[0].slice(0, 34))}</span>` : `<span class="no">✗ ${miss || 'thiếu'}</span>`}</li>`;
     els.chk.innerHTML = li('Mã đơn sàn', d.ma, info.track ? 'khách gửi mã vận đơn' : 'chưa có (đơn mới thì bỏ qua)') + li('Tên', d.ten) + li('SĐT', d.sdt) + li('Địa chỉ', d.dc) + li('Sản phẩm / việc', d.viec) + `<li><span>Ngày đặt · đã đánh giá</span><span class="mini">bản 2.0 tự tra sàn</span></li>`;
-    const txt = S.donEdit[A.convId] !== undefined ? S.donEdit[A.convId] : orderText(d, A.page);
+    const txt = S.donEdit[A.convId] !== undefined ? S.donEdit[A.convId] : orderText(d, A.page, A);
     if (document.activeElement !== els.don && els.don.value !== txt) els.don.value = txt;
     const ns = (A.notes || []); const cur = orderNoteOf(A);
     if (!els.note.dataset.busy) els.note.textContent = cur ? '📝 Sửa ghi chú đơn' : '📝 Ghi ô Thông tin';
