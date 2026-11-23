@@ -633,10 +633,15 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
     const aiPhone = phonesIn(out.don_sdt || '').find((x) => custPhones.includes(x)) || '';
     // Có tin tạo đơn thật (Shop đã chép / ghi chú) → tin đó là nguồn chính xác nhất; AI chỉ bù phần thiếu
     const fromBlock = (info.from || []).some((f) => /tin tạo đơn/.test(f));
+    // 1.2.5: khách nhắn thêm/bớt món SAU tin tạo đơn → dùng phần sản phẩm + tổng tiền AI vừa tính lại
+    const lastBlockT = ((A.msgs || []).filter((m) => !m.k && m.text && isOrderBlock(m.text)).pop() || {}).t || '';
+    const changed = fromBlock && lastBlockT && msgs.some((m) => m.k && m.t > lastBlockT && /thêm|bớt|bỏ|đổi|lấy luôn|gửi luôn|cho (mình|em|chị|anh) (thêm|\d)|\d+\s*(vòng|hộp|bó|bịch|sợi|cái)/i.test(m.text || '')) && String(out.don_viec || '').trim() && moneyOf(out.don_thu) && moneyOf(out.don_thu) !== moneyOf(info.thu);
     const pick = (ai, loc) => (fromBlock ? (loc || ai || '') : (ai || loc || ''));
+    const pickOrd = (ai, loc) => (changed ? (ai || loc || '') : pick(ai, loc));
     const chot = fromBlock || !!info.ma || phonesIn(custSrc).length > 0;
     const aiOrd = (v) => (chot ? v : '');
-    const don = { ten: pick(out.don_ten, info.ten), sdt: info.sdt || aiPhone, dc: pick(aiDc, info.dc), ma: info.ma || out.don_ma_san || '', viec: pick(aiOrd(out.don_viec), info.viec), qua: pick(aiOrd(out.don_qua), info.qua), thu: pick(aiOrd(out.don_thu), info.thu) };
+    const don = { ten: pick(out.don_ten, info.ten), sdt: info.sdt || aiPhone, dc: pick(aiDc, info.dc), ma: info.ma || out.don_ma_san || '', viec: pickOrd(aiOrd(out.don_viec), info.viec), qua: pickOrd(aiOrd(out.don_qua), info.qua), thu: pickOrd(aiOrd(out.don_thu), info.thu) };
+    if (changed) log('Khách thêm/bớt món sau tin tạo đơn → cập nhật sản phẩm + tổng tiền theo tin mới', '', false);
     if (don.ma && !findCodes(don.ma).order) don.ma = info.ma || '';
     don.dc = cleanDc(don.dc); if (isShopAddr(don.dc)) don.dc = ''; if (SHOP_PHONES.includes(don.sdt)) don.sdt = ''; if (SHOP_NAME_RX.test(don.ten || '')) don.ten = info.ten && !SHOP_NAME_RX.test(info.ten) ? info.ten : '';
     learnedFix(don);
