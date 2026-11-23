@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TDG-pancake
 // @namespace    smh.pancake
-// @version      1.2.5
+// @version      1.2.6
 // @updateURL    https://raw.githubusercontent.com/phanbacao/tdg-script/main/chatbot/pancake.user.js
 // @downloadURL  https://raw.githubusercontent.com/phanbacao/tdg-script/main/chatbot/pancake.user.js
 // @description  Bot gợi ý 3 phương án trả lời khách Zalo (Sơn Mộc Hương & Trầm Hương Hà Xá) trên Pancake – tự học từ nhân viên, tự rà soát mỗi đêm, nghe tin thoại, đọc ảnh, 1 ghi chú/khách, cào hội thoại về Sheet bộ não
@@ -17,7 +17,7 @@
   window.__TDGP_LOADED = true;
 
   // ===================== ⑦ CẤU HÌNH =====================
-  const VERSION = '1.2.5';
+  const VERSION = '1.2.6';
   const RAW_DIR = 'https://raw.githubusercontent.com/phanbacao/tdg-script/main/chatbot/';
   const RAW_URL = 'https://raw.githubusercontent.com/phanbacao/tdg-script/main/chatbot/pancake.user.js';
   const TITLE = 'TDG-pancake ' + VERSION;
@@ -31,9 +31,8 @@
     promoSMH: 'Mua đơn từ 150k tặng 1 hộp nụ trầm mix bách xanh\nMua đơn từ 300k tặng 1 vòng trầm chuẩn mix sen 8li\nMua đơn từ 500k tặng 1 hộp nụ cao cấp\nMua đơn từ 1 triệu tặng 1 hộp nụ đặc biệt',
     promoTHHX: 'Mua đơn từ 200k tặng 1 hộp vân mây tiêu chuẩn\nMua đơn từ 400k tặng 1 bịch dăm hoặc 1 hộp nụ cao cấp\nMua đơn từ 1 triệu tặng 1 hộp vân mây VIP\nMua đơn từ 2 triệu tặng 1 hộp nụ VIP + 1 bịch dăm',
     freeshipMin: 100000, hsOpen: false,
-    txtDotay: 'Dạ bạn dùng tờ 100k quấn quanh cổ tay như hình rồi chụp gửi Shop, để Shop tư vấn size vừa tay cho bạn nha',
-    txtQr: 'Dạ bạn chuyển khoản vô tài khoản này giúp Shop nha, chuyển xong bạn gửi Shop ảnh để Shop lên đơn ạ',
-    txtQrTong: 'Dạ tổng đơn là {tong}, bạn chuyển khoản vô tài khoản này giúp Shop nha, chuyển xong bạn gửi Shop ảnh để Shop lên đơn ạ',
+    txtDotay: 'Dạ cách đo size cổ tay: Bạn có thể dùng tờ 100K quấn quanh cổ tay như thế này, rồi chụp gửi shop, để shop tư vấn size vừa tay cho mình ạ.',
+    txtQr: 'Dạ Shop gửi STK ạ',
   };
   const CFG_KEY = 'tdgp_cfg_v1';
   const cfg = Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(CFG_KEY) || '{}'));
@@ -1091,29 +1090,61 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
   // ===================== GỬI ẢNH (hướng dẫn đo tay · mã QR chuyển khoản) =====================
   const IMG = { dotay: { url: RAW_DIR + 'anh/do-tay-smh.jpg', name: 'huong-dan-do-co-tay.jpg', label: 'ảnh hướng dẫn đo tay', only: 'SMH' }, qr: { url: RAW_DIR + 'anh/qr-chuyen-khoan.jpg', name: 'ma-qr-chuyen-khoan.jpg', label: 'mã QR chuyển khoản' } };
   const imgCache = {};
+  // 1.2.6: mỗi Zalo một bộ ảnh + câu kèm riêng, sửa bằng nút ✏️, lưu trên máy đang sửa
+  const CUS = {}; // CUS['SMH_dotay'] = { blob, text, at }
+  const cusKey = (sh, kind) => sh + '_' + kind;
+  async function loadCustom() { for (const sh of ['SMH', 'THHX']) for (const k of ['dotay', 'qr']) { try { const v = await DB.get('kv', 'img_' + cusKey(sh, k)); if (v) CUS[cusKey(sh, k)] = v; } catch (e) { } } render(); }
+  async function saveCustom(sh, kind, v) { const key = cusKey(sh, kind); if (v) CUS[key] = v; else delete CUS[key]; try { await DB.put('kv', v || null, 'img_' + key); } catch (e) { log('Lưu ảnh/câu tự chọn lỗi: ' + e.message, 'err', false); } }
+  const hasImg = (sh, kind) => !!((CUS[cusKey(sh, kind)] || {}).blob) || !(IMG[kind].only && IMG[kind].only !== sh);
+  async function imgFor(sh, kind) { const c = CUS[cusKey(sh, kind)]; if (c && c.blob) return new File([c.blob], IMG[kind].name, { type: c.blob.type || 'image/jpeg' }); return imgFile(kind); }
   async function imgFile(kind) { const im = IMG[kind]; if (!imgCache[kind]) { const r = await fetch(im.url + '?v=' + VERSION); const b = await r.blob(); if (!r.ok || !b.size) throw new Error('không tải được ' + im.label); imgCache[kind] = b; } return new File([imgCache[kind]], im.name, { type: 'image/jpeg' }); }
-  async function copyImg(kind) { const f = await imgFile(kind); const bmp = await createImageBitmap(f); const cv = document.createElement('canvas'); cv.width = bmp.width; cv.height = bmp.height; cv.getContext('2d').drawImage(bmp, 0, 0); const png = await new Promise((r) => cv.toBlob(r, 'image/png')); await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]); }
+  async function copyImg(kind, sh) { const f = sh ? await imgFor(sh, kind) : await imgFile(kind); const bmp = await createImageBitmap(f); const cv = document.createElement('canvas'); cv.width = bmp.width; cv.height = bmp.height; cv.getContext('2d').drawImage(bmp, 0, 0); const png = await new Promise((r) => cv.toBlob(r, 'image/png')); await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]); }
   function imgHint(A, sg) {
     if (!A || !A.page) return {}; const pend = pendingOf(A.msgs || []).map((m) => m.text || '').join(' '); const v = profileView(A);
-    return { qr: (sg && sg.guiAnh === 'qr') || /chuyển khoản|\bck\b|stk|số tài khoản|tài khoản ngân hàng|quét mã/i.test(pend), dotay: A.page.short === 'SMH' && ((sg && sg.guiAnh === 'dotay') || (/size|mấy li|bao nhiêu li|rộng|chật|vừa tay|đổi size|cổ tay/i.test(pend) && !v.co_tay)) };
+    return { qr: (sg && sg.guiAnh === 'qr') || /chuyển khoản|\bck\b|stk|số tài khoản|tài khoản ngân hàng|quét mã/i.test(pend), dotay: hasImg(A.page.short, 'dotay') && ((sg && sg.guiAnh === 'dotay') || (/size|mấy li|bao nhiêu li|rộng|chật|vừa tay|đổi size|cổ tay/i.test(pend) && !v.co_tay)) };
   }
   function imgText(kind, A) {
-    const sg = S.sg[A.convId]; const pron = (sg && sg.pron) || (profileView(A).xung_ho || 'bạn');
-    let t = kind === 'dotay' ? cfg.txtDotay || DEFAULTS.txtDotay : cfg.txtQr || DEFAULTS.txtQr;
-    if (kind === 'qr') { const d = donOf(A); const n = moneyOf(d.thu || ''); if (n >= 10000 && !/0\s*đ|0đ/.test(d.thu || '')) t = (cfg.txtQrTong || DEFAULTS.txtQrTong).replace('{tong}', fmtVnd(n)); }
-    return finishText(t, norm(pron));
+    const sg = S.sg[A.convId]; const pron = norm((sg && sg.pron) || (profileView(A).xung_ho || 'bạn'));
+    const c = CUS[cusKey(A.page.short, kind)]; const t = (c && c.text) || (kind === 'dotay' ? DEFAULTS.txtDotay : DEFAULTS.txtQr);
+    return pron === 'anh' || pron === 'chị' ? finishText(t, pron).replace(/\s*$/, t.trim().endsWith('.') ? '.' : '') : t.trim();
   }
+  function openImgEditor(kind) {
+    const A = S.active; if (!A || !A.page || !panel) return; const sh = A.page.short; const im = IMG[kind]; const key = cusKey(sh, kind);
+    const old = panel.querySelector('#tdg-imged'); if (old) old.remove();
+    const c = CUS[key] || {}; let newBlob = null;
+    const box = document.createElement('div'); box.id = 'tdg-imged';
+    box.innerHTML = `<div class="ie-in"><div class="ie-h"><b>✏️ ${esc(im.label)} – Zalo ${esc(sh)}</b><a data-x="close">✕</a></div>
+      <div class="ie-img"><img alt=""><span class="ie-no">Chưa có ảnh</span></div>
+      <div class="ie-row"><label class="b ie-pick">🖼 Đổi ảnh<input type="file" accept="image/*" hidden></label><span class="ie-st"></span></div>
+      <label class="ie-l">Câu gửi kèm ảnh</label><textarea rows="3"></textarea>
+      <div class="ie-note">Lưu trên máy này cho Zalo ${esc(sh)}. Khách xưng anh/chị thì bot tự đổi "bạn/mình" thành anh/chị.</div>
+      <div class="ie-row"><button class="b p" data-x="save">💾 Lưu</button><button class="b" data-x="reset">↺ Về mặc định</button><button class="b" data-x="close">Đóng</button></div></div>`;
+    panel.appendChild(box);
+    const img = box.querySelector('img'), no = box.querySelector('.ie-no'), ta = box.querySelector('textarea'), st = box.querySelector('.ie-st'), fi = box.querySelector('input[type=file]');
+    ta.value = c.text || (kind === 'dotay' ? DEFAULTS.txtDotay : DEFAULTS.txtQr);
+    const show = async () => { try { const f = newBlob || (hasImg(sh, kind) ? await imgFor(sh, kind) : null); if (f) { img.src = URL.createObjectURL(f); img.style.display = ''; no.style.display = 'none'; } else { img.style.display = 'none'; no.style.display = ''; } } catch (e) { st.textContent = '⚠ không tải được ảnh: ' + e.message; } };
+    st.textContent = c.blob ? 'đang dùng ảnh bạn chọn' : hasImg(sh, kind) ? 'đang dùng ảnh mặc định' : ''; show();
+    fi.onchange = async () => { const f = fi.files && fi.files[0]; if (!f) return; if (!/^image\//.test(f.type)) { st.textContent = '⚠ chỉ chọn file ảnh'; return; } st.textContent = '⏳ đang xử lý ảnh…'; try { newBlob = await shrinkImg(f); st.textContent = `✓ ảnh mới ${Math.round(newBlob.size / 1024)}KB – bấm Lưu`; show(); } catch (e) { st.textContent = '⚠ ảnh lỗi: ' + e.message; } };
+    box.onclick = async (e) => {
+      const x = e.target.closest('[data-x]'); if (!x) return; e.stopPropagation(); const a = x.dataset.x;
+      if (a === 'close') { box.remove(); return; }
+      if (a === 'reset') { if (!confirm(`Bỏ ảnh và câu bạn đã chọn, quay về mặc định cho Zalo ${sh}?`)) return; await saveCustom(sh, kind, null); log(`Đã đưa ${im.label} Zalo ${sh} về mặc định`, 'ok', false); box.remove(); render(); return; }
+      if (a === 'save') { const text = ta.value.trim(); const blob = newBlob || c.blob || null; if (!blob && !hasImg(sh, kind)) { st.textContent = '⚠ chưa có ảnh – bấm "Đổi ảnh" để chọn'; return; } x.disabled = true; x.textContent = '⏳ đang lưu…'; await saveCustom(sh, kind, { blob, text, at: Date.now() }); log(`Đã lưu ${im.label} + câu kèm cho Zalo ${sh}${newBlob ? ' (ảnh mới)' : ''}`, 'ok', false); box.remove(); render(); }
+    };
+  }
+  // ảnh lớn → thu nhỏ còn cạnh dài 1600px, JPEG ~85%, để dán nhanh và lưu nhẹ
+  async function shrinkImg(f) { const bmp = await createImageBitmap(f); const sc = Math.min(1, 1600 / Math.max(bmp.width, bmp.height)); if (sc === 1 && f.size < 600 * 1024) return f; const cv = document.createElement('canvas'); cv.width = Math.round(bmp.width * sc); cv.height = Math.round(bmp.height * sc); cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height); return await new Promise((r) => cv.toBlob(r, 'image/jpeg', 0.85)); }
   const previewCount = () => document.querySelectorAll('.reply-box-container .preview-item, .preview-item--photo').length;
   async function sendImage(kind) {
     const A = S.active; const im = IMG[kind]; if (!A || !A.page || !im || S.sending) return;
-    if (im.only && A.page.short !== im.only) { S.err = 'Ảnh này có logo Sơn Mộc Hương – chỉ dùng ở Zalo SMH'; render(); return; }
+    if (!hasImg(A.page.short, kind)) { S.err = `Zalo ${A.page.short} chưa có ${im.label} riêng – bấm ✏️ bên cạnh để chọn ảnh`; render(); return; }
     const nick = domNick(); if (nick && A.name && similarity(nick, A.name) < 0.6) { S.err = `Khung chat đang là "${nick}", không phải "${A.name}" – không đưa ảnh vào`; render(); return; }
     const ta = chatBox(); if (!ta) { S.err = 'Không tìm thấy ô chat'; render(); return; }
     const cur = (ta.value || '').trim(); if (cur && !isBotText(cur)) { S.err = 'Ô chat đang có chữ bạn gõ – gửi hoặc xoá chữ đó trước rồi bấm lại'; render(); return; }
     const text = imgText(kind, A);
     S.sending = true; S.imgStage = '⏳ đang tải ' + im.label; render(); const t0 = Date.now();
     try {
-      const file = await imgFile(kind);
+      const file = await imgFor(A.page.short, kind);
       const before = previewCount();
       S.imgStage = '⏳ đang đưa ảnh vào ô chat'; render();
       const dt = new DataTransfer(); dt.items.add(file); ta.focus();
@@ -1121,7 +1152,7 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
       let preview = false; for (let k = 0; k < 30 && !preview; k++) { await sleep(350); preview = previewCount() > before; }
       const box = chatBox() || ta; setChat(box, text); S.imgFill = S.imgFill || {}; S.imgFill[A.convId] = { kind, text, at: Date.now(), preview };
       if (!preview) {
-        await copyImg(kind);
+        await copyImg(kind, A.page.short);
         S.imgStage = `📋 Đã chép ${im.label} + điền câu kèm – bấm vào ô chat, Ctrl+V rồi Gửi`;
         log(`Pancake chưa nhận ảnh dán tự động → đã chép ${im.label}, nhân viên bấm Ctrl+V (${Math.round((Date.now() - t0) / 1000)}s)`, 'warn', { conv: A.convId, anh: kind });
         alert(`Đã chép ${im.label} và điền câu kèm vào ô chat.\nBấm vào ô chat Pancake, nhấn Ctrl+V rồi bấm Gửi.`);
@@ -1182,6 +1213,22 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
 
   // ===================== GIAO DIỆN (theo TDG-duoke) =====================
   const css = `
+#tdg.b-smh{--hd:#D35753;--bd:#D35753;--hdt:#fff}
+#tdg.b-thhx{--hd:#F7C851;--bd:#F7C851;--hdt:#3b2a00}
+#tdg.b-thhx .hd .br,#tdg.b-thhx .hd .mn{background:rgba(0,0,0,.12);color:#3b2a00}
+#tdg.b-thhx .hsb{background:#fff;color:#7a5200}#tdg.b-thhx .hsb.on{background:#7a5200;color:#fff}
+#tdg .ibw{display:inline-flex;align-items:center;gap:1px;margin-right:4px}
+#tdg .pen{border:0;background:transparent;font-size:11px;padding:0 3px;cursor:pointer;opacity:.75;line-height:1}#tdg .pen:hover{opacity:1}
+#tdg .ib.off{opacity:.45}
+#tdg-imged{position:absolute;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:5;border-radius:12px}
+#tdg-imged .ie-in{background:#fff;border-radius:12px;padding:10px 12px;width:92%;max-height:94%;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+#tdg-imged .ie-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}#tdg-imged .ie-h a{cursor:pointer;font-size:16px;padding:0 4px}
+#tdg-imged .ie-img{border:1px dashed #cbd5e1;border-radius:8px;min-height:90px;display:flex;align-items:center;justify-content:center;background:#f8fafc}
+#tdg-imged .ie-img img{max-width:100%;max-height:230px;border-radius:6px}#tdg-imged .ie-no{color:#94a3b8;font-size:12px}
+#tdg-imged .ie-row{display:flex;gap:6px;align-items:center;margin-top:7px}#tdg-imged .ie-st{font-size:11.5px;color:#64748b}
+#tdg-imged .ie-pick{flex:0 0 auto;cursor:pointer}#tdg-imged .ie-l{display:block;font-size:12px;font-weight:700;margin-top:8px}
+#tdg-imged textarea{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:6px 8px;font-size:13px;resize:vertical}
+#tdg-imged .ie-note{font-size:11px;color:#94a3b8;margin-top:3px}
 #tdg .hsb{margin-left:auto;margin-right:4px;border:0;border-radius:8px;padding:3px 9px;background:#fde68a;color:#78350f;font-weight:700;font-size:12px;cursor:pointer}
 #tdg .hsb.on{background:#f59e0b;color:#fff}
 #tdg .hs{background:#fffbeb;border-bottom:2px solid #f59e0b;padding:8px 10px;max-height:46vh;overflow:auto;font-size:12px}
@@ -1214,7 +1261,7 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
 #tdg #tdg-zact button.p{background:#0f766e;color:#fff;border-color:#0f766e}
 #tdg textarea.promo{width:100%;min-height:72px;font-size:12px;box-sizing:border-box}
 #tdg{--ai:#7c3aed;--ai2:#c4b5fd;--ok:#14b8a6;--okd:#0f766e;--wait:#f97316;--late:#dc2626;--off:#cbd5e1;--att:#fef3c7;
-position:fixed;right:14px;bottom:10px;z-index:999998;width:470px;max-width:calc(100vw - 28px);max-height:78vh;display:flex;flex-direction:column;background:#fff;border:2px solid var(--ok);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.18);font:14px/1.45 -apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#1f2937;box-sizing:border-box}
+position:fixed;right:14px;bottom:10px;z-index:999998;width:470px;max-width:calc(100vw - 28px);max-height:78vh;display:flex;flex-direction:column;background:#fff;border:2px solid var(--bd,var(--ok));border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.18);font:14px/1.45 -apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#1f2937;box-sizing:border-box}
 #tdg *{box-sizing:border-box}#tdg button,#tdg input,#tdg select,#tdg textarea{font-family:inherit}
 #tdg.min{width:auto;min-width:300px}
 #tdg.s-wait{animation:tdgW 1s ease-in-out infinite}#tdg.s-late{animation:tdgL .5s ease-in-out infinite}#tdg.s-ai{animation:tdgA .5s ease-in-out infinite}
@@ -1222,7 +1269,7 @@ position:fixed;right:14px;bottom:10px;z-index:999998;width:470px;max-width:calc(
 @keyframes tdgL{50%{border-color:var(--late);box-shadow:0 0 0 6px #fca5a5,0 10px 30px rgba(0,0,0,.18)}}
 @keyframes tdgA{50%{border-color:var(--ai);box-shadow:0 0 0 5px var(--ai2),0 10px 30px rgba(0,0,0,.18)}}
 #tdg.still{animation:none !important}
-#tdg .hd{display:flex;align-items:center;gap:6px;padding:6px 7px 6px 12px;background:var(--okd);color:#fff;border-radius:11px 11px 0 0;cursor:default;user-select:none;flex:0 0 auto}
+#tdg .hd{display:flex;align-items:center;gap:6px;padding:6px 7px 6px 12px;background:var(--hd,var(--okd));color:var(--hdt,#fff);border-radius:11px 11px 0 0;cursor:default;user-select:none;flex:0 0 auto}
 #tdg.min .hd{border-radius:11px;cursor:pointer;padding:9px 8px 9px 14px}
 #tdg .hd b{font-size:14px;flex:1;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
 #tdg .hd .br{font-size:11.5px;font-weight:700;background:rgba(255,255,255,.2);padding:2px 8px;border-radius:999px}
@@ -1360,9 +1407,6 @@ position:fixed;right:14px;bottom:10px;z-index:999998;width:470px;max-width:calc(
           <label>Link Sheet bộ não (đã xuất bản)</label><input id="c-sheet">
           <label>Link Apps Script Pancake</label><input id="c-hook" placeholder="https://script.google.com/macros/s/…/exec">
           <label>Miễn phí ship cho đơn từ (đồng)</label><input id="c-freeship" type="number" min="0" step="10000">
-          <label>Câu đi kèm ảnh đo tay</label><textarea id="c-txtdotay" rows="2"></textarea>
-          <label>Câu đi kèm mã QR (chưa biết tổng tiền)</label><textarea id="c-txtqr" rows="2"></textarea>
-          <label>Câu đi kèm mã QR (đã biết tổng – {tong} là số tiền)</label><textarea id="c-txtqrtong" rows="2"></textarea>
           <label>Khách chờ quá (phút) thì panel nháy đỏ</label><input id="c-wait" type="number" min="1">
           <div class="kb" id="c-kb"></div>
           <div class="sc" id="c-sc"></div>
@@ -1415,9 +1459,9 @@ position:fixed;right:14px;bottom:10px;z-index:999998;width:470px;max-width:calc(
     els.don.oninput = () => { if (S.active) S.donEdit[S.active.convId] = els.don.value; };
     // cấu hình
     const C = (id) => $(id);
-    const fillCfg = () => { C('c-auto').checked = !!cfg.autoSuggest; C('c-fill').checked = !!cfg.autoFill; C('c-note').checked = !!cfg.autoNote; C('c-img').checked = !!cfg.readImages; C('c-blink').checked = !!cfg.blink; C('c-scrape').checked = !!cfg.scrape; C('c-learn').checked = !!cfg.learn; C('c-review').checked = !!cfg.selfReview; C('c-promo-smh').value = cfg.promoSMH || ''; C('c-promo-thhx').value = cfg.promoTHHX || ''; C('c-key').value = cfg.geminiKey; C('c-model').value = cfg.model; C('c-sheet').value = cfg.sheetPub; C('c-hook').value = cfg.hook; C('c-wait').value = cfg.waitMin; C('c-freeship').value = cfg.freeshipMin; C('c-txtdotay').value = cfg.txtDotay || ''; C('c-txtqr').value = cfg.txtQr || ''; C('c-txtqrtong').value = cfg.txtQrTong || ''; C('c-user').textContent = cfg.userName || '(đang lấy từ tài khoản Pancake…)'; els.cfg.classList.remove('isdirty'); renderCfgInfo(); };
+    const fillCfg = () => { C('c-auto').checked = !!cfg.autoSuggest; C('c-fill').checked = !!cfg.autoFill; C('c-note').checked = !!cfg.autoNote; C('c-img').checked = !!cfg.readImages; C('c-blink').checked = !!cfg.blink; C('c-scrape').checked = !!cfg.scrape; C('c-learn').checked = !!cfg.learn; C('c-review').checked = !!cfg.selfReview; C('c-promo-smh').value = cfg.promoSMH || ''; C('c-promo-thhx').value = cfg.promoTHHX || ''; C('c-key').value = cfg.geminiKey; C('c-model').value = cfg.model; C('c-sheet').value = cfg.sheetPub; C('c-hook').value = cfg.hook; C('c-wait').value = cfg.waitMin; C('c-freeship').value = cfg.freeshipMin; C('c-user').textContent = cfg.userName || '(đang lấy từ tài khoản Pancake…)'; els.cfg.classList.remove('isdirty'); renderCfgInfo(); };
     const cfgShow = (on) => { els.cfg.classList.toggle('show', on); if (on) fillCfg(); };
-    const applyCfg = () => { const wasScrape = cfg.scrape; cfg.autoSuggest = C('c-auto').checked; cfg.autoFill = C('c-fill').checked; cfg.autoNote = C('c-note').checked; cfg.readImages = C('c-img').checked; cfg.blink = C('c-blink').checked; cfg.scrape = C('c-scrape').checked; cfg.learn = C('c-learn').checked; cfg.selfReview = C('c-review').checked; cfg.promoSMH = C('c-promo-smh').value.trim(); cfg.promoTHHX = C('c-promo-thhx').value.trim(); cfg.geminiKey = C('c-key').value.trim(); cfg.model = C('c-model').value.trim() || DEFAULTS.model; cfg.sheetPub = C('c-sheet').value.trim() || DEFAULTS.sheetPub; cfg.hook = C('c-hook').value.trim(); cfg.waitMin = Number(C('c-wait').value) || DEFAULTS.waitMin; cfg.freeshipMin = Math.max(0, Number(C('c-freeship').value)); if (!C('c-freeship').value) cfg.freeshipMin = DEFAULTS.freeshipMin; ['txtDotay', 'txtQr', 'txtQrTong'].forEach((k) => { cfg[k] = C('c-' + k.toLowerCase()).value.trim() || DEFAULTS[k]; }); saveCfg(); els.cfg.classList.remove('isdirty'); log('Đã lưu cấu hình', 'ok', false); if (cfg.scrape && !wasScrape) scrapeLoop(); if (cfg.hook) flushHook(); if (!S.kb) loadKB(true); render(); };
+    const applyCfg = () => { const wasScrape = cfg.scrape; cfg.autoSuggest = C('c-auto').checked; cfg.autoFill = C('c-fill').checked; cfg.autoNote = C('c-note').checked; cfg.readImages = C('c-img').checked; cfg.blink = C('c-blink').checked; cfg.scrape = C('c-scrape').checked; cfg.learn = C('c-learn').checked; cfg.selfReview = C('c-review').checked; cfg.promoSMH = C('c-promo-smh').value.trim(); cfg.promoTHHX = C('c-promo-thhx').value.trim(); cfg.geminiKey = C('c-key').value.trim(); cfg.model = C('c-model').value.trim() || DEFAULTS.model; cfg.sheetPub = C('c-sheet').value.trim() || DEFAULTS.sheetPub; cfg.hook = C('c-hook').value.trim(); cfg.waitMin = Number(C('c-wait').value) || DEFAULTS.waitMin; cfg.freeshipMin = Math.max(0, Number(C('c-freeship').value)); if (!C('c-freeship').value) cfg.freeshipMin = DEFAULTS.freeshipMin; saveCfg(); els.cfg.classList.remove('isdirty'); log('Đã lưu cấu hình', 'ok', false); if (cfg.scrape && !wasScrape) scrapeLoop(); if (cfg.hook) flushHook(); if (!S.kb) loadKB(true); render(); };
     panel.querySelector('.cb2').addEventListener('input', () => els.cfg.classList.add('isdirty')); panel.querySelector('.cb2').addEventListener('change', () => els.cfg.classList.add('isdirty'));
     C('tdg-cfgx').onclick = () => { if (els.cfg.classList.contains('isdirty') && !confirm('Có thay đổi chưa lưu. Đóng và bỏ thay đổi?')) return; cfgShow(false); };
     C('c-save').onclick = () => { applyCfg(); cfgShow(false); };
@@ -1445,6 +1489,7 @@ position:fixed;right:14px;bottom:10px;z-index:999998;width:470px;max-width:calc(
       else if (act === 'proactive') resuggest();
       else if (act === 'relearn') { loadLessons(true).then(() => { renderCfgInfo(); }); }
       else if (act === 'sendimg') sendImage(val);
+      else if (act === 'editimg') openImgEditor(val);
       else if (act === 'hsrefresh') { if (S.active) { const pf = PROF[S.active.convId]; if (pf) pf.fullLast = '__'; buildProfile(S.active, 'nhân viên bấm ↻'); } }
       else if (act === 'opencross') { const x = (S.active && S.active.cross || []).find((y) => y.conv === val); openConv(val, x ? x.name : ''); }
       else if (act === 'reviewnow') { localStorage.removeItem(REV_KEY); selfReviewTick(true); }
@@ -1497,6 +1542,7 @@ position:fixed;right:14px;bottom:10px;z-index:999998;width:470px;max-width:calc(
     const typing = Date.now() - S.typingAt < 30000;
     panel.className = (cfg.minimized ? 'min ' : '') + (cfg.blink && !typing ? (aiBusyHere() ? 's-ai' : late ? 's-late' : n ? 's-wait' : '') : (aiBusyHere() ? 's-ai still' : late ? 's-late still' : n ? 's-wait still' : ''));
     if (!cfg.minimized) panel.classList.remove('min');
+    if (page) panel.classList.add(page.short === 'THHX' ? 'b-thhx' : 'b-smh');
   }
   function renderCtx() {
     if (!panel || !els.ctx) return;
@@ -1564,7 +1610,7 @@ position:fixed;right:14px;bottom:10px;z-index:999998;width:470px;max-width:calc(
       if (nc) z.push('<button class="p" data-act="forcedraft">Vẫn soạn</button><button data-act="iscust">✓ Là khách mua</button>');
       else { if (ended) z.push('<button class="p" data-act="proactive">✍ Soạn câu nhắn chủ động</button>'); z.push('<button data-act="notcust" title="Nhân viên nội bộ, nhà cung cấp, quảng cáo… – bot sẽ nhớ cho mọi máy">🚫 Không phải khách</button>'); }
     }
-    if (A && A.page && !busy) { const h = imgHint(A, sg); const ib = (k, lab) => `<button class="${h[k] ? 'p ib' : 'ib'}" data-act="sendimg" data-val="${k}" ${S.sending ? 'disabled' : ''} title="Đưa ${IMG[k].label} + câu kèm vào ô chat để bạn xem lại rồi gửi">${h[k] ? '⭐ ' : ''}📎 ${lab}</button>`; z.push((A.page.short === 'SMH' ? ib('dotay', 'Ảnh đo tay') : '') + ib('qr', 'Mã QR chuyển khoản')); if (S.imgStage) z.push(`<span class="mini">${esc(S.imgStage)}</span>`); }
+    if (A && A.page && !busy) { const h = imgHint(A, sg); const ib = (k, lab) => `<button class="${h[k] ? 'p ib' : 'ib'}" data-act="sendimg" data-val="${k}" ${S.sending ? 'disabled' : ''} title="Đưa ${IMG[k].label} + câu kèm vào ô chat để bạn xem lại rồi gửi">${h[k] ? '⭐ ' : ''}📎 ${lab}</button>`; const pen = (k) => `<button class="pen" data-act="editimg" data-val="${k}" title="Đổi ảnh / sửa câu kèm cho Zalo ${A.page.short}">✏️</button>`; z.push(`<span class="ibw">${hasImg(A.page.short, 'dotay') ? ib('dotay', 'Ảnh đo tay') : `<button class="ib off" data-act="editimg" data-val="dotay" title="Zalo ${A.page.short} chưa có ảnh đo tay – bấm để chọn ảnh">📎 Ảnh đo tay</button>`}${pen('dotay')}</span><span class="ibw">${ib('qr', 'Mã QR chuyển khoản')}${pen('qr')}</span>`); if (S.imgStage) z.push(`<span class="mini">${esc(S.imgStage)}</span>`); }
     const zh = z.join(''); if (els.zact.innerHTML !== zh) els.zact.innerHTML = zh;
   }
   function renderLines(busy, sg) {
@@ -1627,7 +1673,7 @@ position:fixed;right:14px;bottom:10px;z-index:999998;width:470px;max-width:calc(
 
   // ===================== KHỞI ĐỘNG =====================
   buildUi();
-  loadUser(); loadKB(false); buildPairs().catch(() => { }); setTimeout(() => loadLessons(true), 4000);
+  loadUser(); loadKB(false); loadCustom(); buildPairs().catch(() => { }); setTimeout(() => loadLessons(true), 4000);
   setInterval(() => loadLessons(false), 15 * 60000);
   setInterval(() => selfReviewTick(false), 10 * 60000 + rnd(0, 60000)); setTimeout(() => selfReviewTick(false), rnd(60000, 120000));
   setTimeout(checkUpdate, 20000); setInterval(checkUpdate, 6 * 3600e3);
