@@ -641,6 +641,7 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
     const chot = fromBlock || !!info.ma || phonesIn(custSrc).length > 0;
     const aiOrd = (v) => (chot ? v : '');
     const don = { ten: pick(out.don_ten, info.ten), sdt: info.sdt || aiPhone, dc: pick(aiDc, info.dc), ma: info.ma || out.don_ma_san || '', viec: pickOrd(aiOrd(out.don_viec), info.viec), qua: pickOrd(aiOrd(out.don_qua), info.qua), thu: pickOrd(aiOrd(out.don_thu), info.thu) };
+    if (don.viec && !/\n/.test(don.viec)) don.viec = don.viec.replace(/,\s+(?=\d+([.,]\d+)?\s*\p{L})/gu, '\n');
     if (changed) log('Khách thêm/bớt món sau tin tạo đơn → cập nhật sản phẩm + tổng tiền theo tin mới', '', false);
     if (don.ma && !findCodes(don.ma).order) don.ma = info.ma || '';
     don.dc = cleanDc(don.dc); if (isShopAddr(don.dc)) don.dc = ''; if (SHOP_PHONES.includes(don.sdt)) don.sdt = ''; if (SHOP_NAME_RX.test(don.ten || '')) don.ten = info.ten && !SHOP_NAME_RX.test(info.ten) ? info.ten : '';
