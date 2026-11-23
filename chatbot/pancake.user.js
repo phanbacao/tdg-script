@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TDG-pancake
 // @namespace    smh.pancake
-// @version      1.2.4
+// @version      1.2.5
 // @updateURL    https://raw.githubusercontent.com/phanbacao/tdg-script/main/chatbot/pancake.user.js
 // @downloadURL  https://raw.githubusercontent.com/phanbacao/tdg-script/main/chatbot/pancake.user.js
 // @description  Bot gợi ý 3 phương án trả lời khách Zalo (Sơn Mộc Hương & Trầm Hương Hà Xá) trên Pancake – tự học từ nhân viên, tự rà soát mỗi đêm, nghe tin thoại, đọc ảnh, 1 ghi chú/khách, cào hội thoại về Sheet bộ não
@@ -17,7 +17,7 @@
   window.__TDGP_LOADED = true;
 
   // ===================== ⑦ CẤU HÌNH =====================
-  const VERSION = '1.2.4';
+  const VERSION = '1.2.5';
   const RAW_DIR = 'https://raw.githubusercontent.com/phanbacao/tdg-script/main/chatbot/';
   const RAW_URL = 'https://raw.githubusercontent.com/phanbacao/tdg-script/main/chatbot/pancake.user.js';
   const TITLE = 'TDG-pancake ' + VERSION;
@@ -31,6 +31,9 @@
     promoSMH: 'Mua đơn từ 150k tặng 1 hộp nụ trầm mix bách xanh\nMua đơn từ 300k tặng 1 vòng trầm chuẩn mix sen 8li\nMua đơn từ 500k tặng 1 hộp nụ cao cấp\nMua đơn từ 1 triệu tặng 1 hộp nụ đặc biệt',
     promoTHHX: 'Mua đơn từ 200k tặng 1 hộp vân mây tiêu chuẩn\nMua đơn từ 400k tặng 1 bịch dăm hoặc 1 hộp nụ cao cấp\nMua đơn từ 1 triệu tặng 1 hộp vân mây VIP\nMua đơn từ 2 triệu tặng 1 hộp nụ VIP + 1 bịch dăm',
     freeshipMin: 100000, hsOpen: false,
+    txtDotay: 'Dạ bạn dùng tờ 100k quấn quanh cổ tay như hình rồi chụp gửi Shop, để Shop tư vấn size vừa tay cho bạn nha',
+    txtQr: 'Dạ bạn chuyển khoản vô tài khoản này giúp Shop nha, chuyển xong bạn gửi Shop ảnh để Shop lên đơn ạ',
+    txtQrTong: 'Dạ tổng đơn là {tong}, bạn chuyển khoản vô tài khoản này giúp Shop nha, chuyển xong bạn gửi Shop ảnh để Shop lên đơn ạ',
   };
   const CFG_KEY = 'tdgp_cfg_v1';
   const cfg = Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(CFG_KEY) || '{}'));
@@ -66,7 +69,7 @@
     if (data !== false) hookSend({ action: 'log', rows: [[new Date().toISOString(), cfg.userName, cls || 'info', msg, data ? JSON.stringify(data).slice(0, 2000) : '']] });
     renderLog();
   }
-  async function timed(name, fn, slowMs) { const t0 = Date.now(); try { const r = await fn(); const ms = Date.now() - t0; if (ms > (slowMs || 15000)) log(`${name} chậm: ${Math.round(ms / 1000)}s`, 'warn'); return r; } catch (e) { log(`${name} lỗi sau ${Math.round((Date.now() - t0) / 1000)}s: ${e.message}`, 'err'); throw e; } }
+  async function timed(name, fn, slowMs) { const t0 = Date.now(); const hid0 = document.hidden; try { const r = await fn(); const ms = Date.now() - t0; if (ms > (slowMs || 15000)) { const sleepy = hid0 || document.hidden || ms > 120000; log(`${name} chậm: ${Math.round(ms / 1000)}s${sleepy ? ' (tab ẩn / máy ngủ – không tính lỗi)' : ''}`, sleepy ? '' : 'warn', sleepy ? false : undefined); } return r; } catch (e) { log(`${name} lỗi sau ${Math.round((Date.now() - t0) / 1000)}s: ${e.message}`, 'err'); throw e; } }
 
   // ===================== API PANCAKE =====================
   async function api(path, opt) {
@@ -472,7 +475,7 @@ reply_1: trả lời thẳng đúng ý khách (hợp nhất, sẽ điền sẵn 
 ## THÔNG TIN ĐƠN (điền don_*; KHÔNG bịa – không có thì để trống)
 Thông tin có thể nằm trong tin của KHÁCH, trong tin của SHOP (Shop hay chép lại thông tin đơn), trong GHI CHÚ, hoặc trong ảnh. Hệ thống đã trích sẵn một phần ở mục "THÔNG TIN ĐÃ TRÍCH" – kiểm tra lại và bổ sung phần thiếu.
 CHỈ lấy thông tin KHÁCH đã gửi (hoặc Shop đã chép lại thành tin tạo đơn). Địa chỉ/SĐT Shop nhắn cho khách để khách ghé KHÔNG phải của khách.
-don_viec / don_qua / don_thu: CHỈ điền khi khách ĐÃ CHỐT (đồng ý lấy, đã gửi tên/SĐT/địa chỉ, hoặc đang đổi trả có mã đơn). Đang tư vấn, khách chưa quyết (vd "để anh xem") → để trống, KHÔNG đoán.
+don_viec / don_qua / don_thu: CHỈ điền khi khách ĐÃ CHỐT (đồng ý lấy, đã gửi tên/SĐT/địa chỉ, hoặc đang đổi trả có mã đơn). Đang tư vấn, khách chưa quyết (vd "để anh xem") → để trống, KHÔNG đoán. Khách thêm/bớt món sau khi chốt → don_viec ghi ĐỦ các món mới nhất, don_thu là TỔNG MỚI (cộng giá các món theo PANCAKE – GIÁ / giá Shop đã báo), câu trả lời có nói tổng tiền thì phải khớp don_thu; số tiền viết kiểu nhân viên: 149k, 1tr280, 2tr920. don_dia_chi chỉ có địa chỉ, KHÔNG kèm tên sản phẩm.
 don_ten (tên người nhận), don_sdt, don_dia_chi (đầy đủ), don_ma_san (mã đơn sàn nếu là khách sàn), don_viec (vd "Đổi 108 TRẦM CHUẨN 7li SMH sang 108 TRẦM CHUẨN 6li SMH" hoặc "5 hộp nụ cao cấp THHX 140k*5"), don_qua (quà Shop đã hứa), don_thu (vd "Thu cod: 700k, miễn phí ship ạ").
 mo_the_don=true khi khách hỏi bảo hành/đổi trả/lỗi hàng hoặc đã gửi thông tin nhận hàng. bao_hanh_tom_tat: 1 dòng nếu khách báo lỗi/bảo hành (vd "báo vỡ 2 hạt, đã xin ảnh"), không thì để trống. mo_ta_anh: mô tả ngắn ảnh khách gửi.
 
@@ -519,6 +522,10 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
     s = s.replace(/\b(cho|để)\s+mình\s+(xin|kiểm tra|xem|gửi|lên đơn|tư vấn|hỗ trợ|báo|hỏi|kiểm)/giu, '$1 Shop $2');
     s = s.replace(MINH_RX, (m, a, w) => a + (w[0] === 'M' ? to[0].toUpperCase() + to.slice(1) : to));
     s = s.replace(/\b(b)ên mình\b/giu, (m, b) => b + 'ên Shop').replace(/\bshop mình\b/gi, 'Shop');
+    // 1.2.5: không trộn "anh/chị" với "bạn" trong cùng 1 câu – theo đúng cách gọi khách đã chọn
+    const cap = (w, like) => (like[0] === like[0].toUpperCase() ? w[0].toUpperCase() + w.slice(1) : w);
+    if (to === 'anh' || to === 'chị') s = s.replace(/(^|[^\p{L}])(bạn)(?=[^\p{L}]|$)/giu, (m, a, w) => a + cap(to, w));
+    else s = s.replace(/(^|[^\p{L}])(anh|chị)(?=\s+(cho|gửi|xem|lấy|đặt|muốn|cần|kiểm|nhận|chuyển|đeo|thích|ơi|nha|nhé|ạ|có|đo|quấn|chụp|báo|nhắn|ghé|dùng|yên)(?![\p{L}]))/giu, (m, a, w) => a + cap('bạn', w)).replace(/(^|[^\p{L}])(cho|giúp|với|gửi|tặng)\s+(anh|chị)(?=[^\p{L}]|$)/giu, (m, a, v) => a + v + ' bạn');
     if (s) s = s[0].toUpperCase() + s.slice(1);
     return s;
   }
@@ -631,8 +638,12 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
     const aiOrd = (v) => (chot ? v : '');
     const don = { ten: pick(out.don_ten, info.ten), sdt: info.sdt || aiPhone, dc: pick(aiDc, info.dc), ma: info.ma || out.don_ma_san || '', viec: pick(aiOrd(out.don_viec), info.viec), qua: pick(aiOrd(out.don_qua), info.qua), thu: pick(aiOrd(out.don_thu), info.thu) };
     if (don.ma && !findCodes(don.ma).order) don.ma = info.ma || '';
-    if (isShopAddr(don.dc)) don.dc = ''; if (SHOP_PHONES.includes(don.sdt)) don.sdt = ''; if (SHOP_NAME_RX.test(don.ten || '')) don.ten = info.ten && !SHOP_NAME_RX.test(info.ten) ? info.ten : '';
+    don.dc = cleanDc(don.dc); if (isShopAddr(don.dc)) don.dc = ''; if (SHOP_PHONES.includes(don.sdt)) don.sdt = ''; if (SHOP_NAME_RX.test(don.ten || '')) don.ten = info.ten && !SHOP_NAME_RX.test(info.ten) ? info.ten : '';
     learnedFix(don);
+    try {
+      const tot = [1, 2, 3].map((k) => String(out['reply_' + k] || '').match(/tổng(?: đơn| cộng| tiền| cod)?(?: của (?:bạn|anh|chị))?(?: là| hết| còn)?\s*([\d.,]+\s*(?:k|tr\d*|triệu|đ|nghìn)?)/i)).filter(Boolean).map((m) => moneyOf(m[1])).filter((x) => x >= 10000);
+      if (tot.length && tot.every((x) => x === tot[0]) && don.thu && moneyOf(don.thu) && moneyOf(don.thu) !== tot[0]) { const old = don.thu; don.thu = don.thu.replace(/\d+\s*(?:tr|triệu)\s*\d{1,3}(?!\d)|[\d.,]+\s*(k|tr|triệu|đ|nghìn)?(?=[\s,]|$)/i, fmtVnd(tot[0])); log(`Sửa tổng tiền ghi chú cho khớp câu soạn: "${old}" → "${don.thu}"`, '', false); }
+    } catch (e) { }
     const nhom = /bảo hành/i.test(out.nhom || '') ? 'bảo hành' : /bán/i.test(out.nhom || '') ? 'bán hàng' : (info.ma || out.bao_hanh_tom_tat ? 'bảo hành' : 'bán hàng');
     return {
       convId: A.convId, lastMsgId: (msgs[msgs.length - 1] || {}).id, at: Date.now(), model: out._model, sec: Math.round((Date.now() - t0) / 1000),
@@ -648,6 +659,12 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
 
   // ===================== ③ ĐƠN & BẢO HÀNH =====================
   const donComplete = (d) => !!(d && d.ten && d.sdt && d.dc && d.viec);
+  // địa chỉ bị dính tên sản phẩm ("…đồng tháp, 1 ống nhang thanh") → cắt phần sản phẩm
+  function cleanDc(dc) {
+    const UNIT_RX = /^\d+([.,]\d+)?\s*(x\s*)?(kg|g|gr|hộp|vòng|sợi|bịch|túi|bó|cây|bộ|mặt|hạt|lọ|gói|chuỗi|miếng|đế|lư|ống|cuộn|khoanh|lách|trụ|charm|dây|máng)(?=[\s,.:]|$)/iu;
+    const parts = String(dc || '').split(/\s*,\s*/); while (parts.length > 1 && (UNIT_RX.test(parts[parts.length - 1]) || /\b(vòng|nhang|nụ trầm|máng|lư xông)\b.*\d|\d.*\b(vòng|nhang|nụ|máng)\b/iu.test(parts[parts.length - 1]) && !ADDR_RX.test(parts[parts.length - 1]))) parts.pop();
+    return parts.join(', ');
+  }
   function orderText(d, page, A) {
     const san = d.ma ? (RX_TIKTOK.test(d.ma) ? 'tiktok' : RX_SHOPEE.test(d.ma) ? 'shopee' : '') : '';
     const L = [d.ma ? `${d.ma} ${page.short.toLowerCase()}${san ? ' ' + san : ''}` : `ZALO ${page.short}`, d.ten || '⚠ THIẾU TÊN', d.sdt || '⚠ THIẾU SĐT', d.dc || '⚠ THIẾU ĐỊA CHỈ', d.viec || '⚠ THIẾU SẢN PHẨM'];
@@ -723,7 +740,7 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
   // ===================== Ô CHAT · GỬI =====================
   const chatBox = () => document.getElementById('replyBoxComposer');
   function setChat(ta, text) { Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, text); ta.dispatchEvent(new Event('input', { bubbles: true })); S.lastFilled = text; }
-  const isBotText = (t) => { const n = norm(t); return !!n && (n === norm(S.lastFilled) || Object.values(S.sg).some((s) => s.opts.some((o) => norm(o.text) === n))); };
+  const isBotText = (t) => { const n = norm(t); return !!n && (n === norm(S.lastFilled) || Object.values(S.imgFill || {}).some((f) => norm(f.text) === n) || Object.values(S.sg).some((s) => s.opts.some((o) => norm(o.text) === n))); };
   function flashChatBox(ta) { try { ta.classList.remove('tdg-flashbox'); void ta.offsetWidth; ta.classList.add('tdg-flashbox'); setTimeout(() => ta.classList.remove('tdg-flashbox'), 1300); } catch (e) { } }
   function pickOpt(i, force, keepFocus) {
     const sg = curSg(); if (!sg || !sg.opts[i]) return false;
@@ -767,9 +784,12 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
     const real = after.map((m) => m.text).filter(Boolean).join(' / '); if (!real) return;
     sg.compared = true; sg.staffReplied = true;
     const used = sg.opts.some((o) => after.some((m) => similarity(m.text, o.text) >= 0.85));
-    hookSend({ action: 'log', rows: [[new Date().toISOString(), cfg.userName, used ? 'gui' : 'so-sanh', A.page.short + ' ' + A.convId, JSON.stringify({ bot: sg.orig || sg.opts.map((o) => o.text), nhan_vien: real, nhom: sg.nhom || '', sua: false, tu_go: !used })]] });
+    const fill = (S.imgFill || {})[A.convId]; const imgSent = after.some((m) => m.att.some((x) => x.type === 'photo'));
+    const khop = after.filter((m) => m.text).map((m) => { const sc = sg.opts.map((o) => similarity(m.text, o.text)); const b = Math.max(...sc, fill ? similarity(m.text, fill.text) : 0); const i = sc.indexOf(b); return { tin: m.text.slice(0, 200), giong: Math.round(b * 100) + '%', nguon: b >= 0.85 ? (i >= 0 ? 'bot phương án ' + (i + 1) : 'bot câu kèm ảnh') : b >= 0.5 ? 'nhân viên sửa câu bot' : 'nhân viên tự gõ' }; });
+    hookSend({ action: 'log', rows: [[new Date().toISOString(), cfg.userName, used ? 'gui' : 'so-sanh', A.page.short + ' ' + A.convId, JSON.stringify({ bot: sg.orig || sg.opts.map((o) => o.text), nhan_vien: real, khop, anh: imgSent ? (fill ? fill.kind : 'nhân viên tự gửi ảnh') : '', cau_kem_anh: fill ? fill.text : '', nhom: sg.nhom || '', sua: false, tu_go: !used })]] });
     const realTxt = after.filter((m) => m.text && !isOrderBlock(m.text)).map((m) => m.text).join(' / ');
-    if (!used && realTxt.length >= 8 && sg.q) addLesson({ type: 'mẫu câu', br: A.page.short, nhom: sg.nhom, q: sg.q, bot: (sg.orig || [])[0] || (sg.opts[0] || {}).text || '', a: realTxt.slice(0, 600), why: 'nhân viên tự trả lời khác gợi ý', conv: A.convId });
+    const usedFill = !!fill && after.some((m) => m.text && similarity(m.text, fill.text) >= 0.85);
+    if (!used && !usedFill && realTxt.length >= 8 && sg.q) addLesson({ type: 'mẫu câu', br: A.page.short, nhom: sg.nhom, q: sg.q, bot: (sg.orig || [])[0] || (sg.opts[0] || {}).text || '', a: realTxt.slice(0, 600), why: 'nhân viên tự trả lời khác gợi ý', conv: A.convId });
   }
 
   // ===================== KHÁCH CHỜ · TRƯỚC / TIẾP =====================
@@ -925,7 +945,7 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
   // 1.2.4: lần đầu mở một khách → tải TOÀN BỘ lịch sử từ Pancake (không chỉ 2 trang gần nhất), lưu vào kho để lần sau dùng
   const fullBusy = {};
   async function loadFullHistory(A) {
-    if (!A || !A.page || fullBusy[A.convId]) return false;
+    if (!A || !A.page || fullBusy[A.convId] || A.convId.includes('_g_')) return false;
     let old = null; try { old = await DB.get('conv', A.convId); } catch (e) { }
     if (old && old.complete && Date.now() - (old.completeAt || 0) < 30 * 864e5) return false;
     fullBusy[A.convId] = 1; const t0 = Date.now(); S.hsStage = '⏳ đang đọc toàn bộ lịch sử…'; renderHs();
@@ -947,7 +967,8 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
     (A.msgs || []).forEach((m) => map.set(m.id, m));
     return [...map.values()].filter((m) => m.k !== 2).sort((a, b) => (a.t < b.t ? -1 : 1));
   }
-  const moneyOf = (t) => { const m = String(t || '').match(/(\d+(?:[.,]\d+)*)\s*(k|tr|triệu|đ|vnđ)?/i); if (!m) return 0; let n = Number(m[1].replace(/[.,](?=\d{3}\b)/g, '').replace(',', '.')); const u = (m[2] || '').toLowerCase(); if (u === 'k') n *= 1000; else if (u === 'tr' || u === 'triệu') n *= 1e6; else if (n < 5000) n *= 1000; return n > 0 && n < 1e9 ? n : 0; };
+  const fmtVnd = (n) => { n = Math.round((Number(n) || 0) / 1000) * 1000; if (n < 1e6) return n / 1000 + 'k'; const tr = Math.floor(n / 1e6), r = Math.round((n % 1e6) / 1000); return r ? tr + 'tr' + String(r).padStart(3, '0') : tr + 'tr'; };
+  const moneyOf = (t) => { const t2 = String(t || '').match(/(\d+)\s*(?:tr|triệu)\s*(\d{1,3})(?!\d)/i); if (t2) return Number(t2[1]) * 1e6 + Number(t2[2].padEnd(3, '0')) * 1000; const m = String(t || '').match(/(\d+(?:[.,]\d+)*)\s*(k|tr|triệu|đ|vnđ)?/i); if (!m) return 0; let n = Number(m[1].replace(/[.,](?=\d{3}\b)/g, '').replace(',', '.')); const u = (m[2] || '').toLowerCase(); if (u === 'k') n *= 1000; else if (u === 'tr' || u === 'triệu') n *= 1e6; else if (n < 5000) n *= 1000; return n > 0 && n < 1e9 ? n : 0; };
   const DAN_RX = /(hộp gấm|hộp vuông|hộp chữ nhật|hộp trụ|hộp tròn|hộp đỏ|hộp xanh|hộp cao cấp|hộp giấy|lọ thủy tinh|lọ thuỷ tinh|dán tem|không tem|khỏi tem|tem nhãn|thương hiệu|logo|không gửi hộp|khỏi gửi|đừng gửi|đừng ghi|không ghi giá|không để giá|bao bì|gói quà|giấy gói|thiệp)/i;
   function danLines(hist) { const out = []; hist.forEach((m, i) => { if (m.text && DAN_RX.test(m.text) && !isOrderBlock(m.text)) out.push({ i, d: dmy(m.t), k: m.k, text: m.text.replace(/\s+/g, ' ').slice(0, 160) }); }); return out; }
   function localProfile(A, hist) {
@@ -996,7 +1017,7 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
   function newSince(A, pf) { const h = A.hist || A.msgs || []; if (!pf || !pf.fullLast) return h.length; const i = h.findIndex((m) => m.id === pf.fullLast); return i < 0 ? Math.max(0, h.length - (pf.fullN || 0)) : h.length - 1 - i; }
   const needFull = (A) => { const pf = PROF[A.convId]; return !pf || !pf.full || !pf.v124 || newSince(A, pf) >= 15; };
   async function buildProfile(A, why) {
-    if (!A || !A.page || !cfg.geminiKey || S.hsBusy) return;
+    if (!A || !A.page || !cfg.geminiKey || S.hsBusy || A.convId.includes('_g_') || notCust[A.convId]) return;
     S.hsBusy = A.convId; renderHs(); const t0 = Date.now();
     try {
       const hist = A.hist || await histOf(A); const lp = A.lp || localProfile(A, hist);
@@ -1017,13 +1038,13 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
     finally { S.hsBusy = ''; renderHs(); renderCtx(); }
   }
   async function maybeProfile(A, tries) {
-    if (!A || S.active !== A || !A.page || notCust[A.convId]) return;
+    if (!A || S.active !== A || !A.page || notCust[A.convId] || A.convId.includes('_g_')) return;
     if (!needFull(A)) return;
     if (S.busy || S.hsBusy) { if ((tries || 0) < 10) setTimeout(() => maybeProfile(A, (tries || 0) + 1), 3000); return; }
     const pf = PROF[A.convId]; buildProfile(A, pf && pf.full ? `có ${newSince(A, pf)} tin mới` : 'lần đầu');
   }
   function mergeHs(A, hs) {
-    if (!A || !A.page || !hs || !Object.keys(hs).length) return;
+    if (!A || !A.page || !hs || !Object.keys(hs).length || A.convId.includes('_g_') || notCust[A.convId]) return;
     const pf = PROF[A.convId] || (PROF[A.convId] = { conv: A.convId, br: A.page.short, name: A.name, inc: {}, ev: [] }); pf.inc = pf.inc || {}; pf.ev = pf.ev || [];
     const f = pf.full || {}; const same = (a, b) => { a = norm(a); b = norm(b); return !!(a && b) && (a === b || b.includes(a) || similarity(a, b) > 0.75); };
     const tl = String(f.dong_thoi_gian || '').split('\n').concat(pf.ev.map((e) => e.t));
@@ -1042,6 +1063,7 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
   function profileText(A) {
     if (!A || !A.page) return ''; const v = profileView(A); const L = []; const buy = v.lp.orders.filter((o) => !o.doi);
     if (buy.length) L.push(`Đã mua ${buy.length} đơn: ` + buy.slice(-3).map((o) => o.d + ' ' + o.viec.split('\n')[0]).join('; '));
+    if (v.lp.phones.length || v.lp.addrs.length) L.push(`THÔNG TIN NHẬN HÀNG ĐÃ CÓ (đơn trước): ${[v.lp.ten, v.lp.phones[v.lp.phones.length - 1], v.lp.addrs[v.lp.addrs.length - 1]].filter(Boolean).join(' · ')} → KHÔNG xin lại tên/SĐT/địa chỉ; hỏi xác nhận "Shop gửi về địa chỉ cũ … như lần trước đúng không ạ"; khách đồng ý hoặc không nói địa chỉ mới thì điền don_ten/don_sdt/don_dia_chi theo thông tin này`);
     [['dan_rieng', 'KHÁCH DẶN RIÊNG (đóng gói/giao)'], ['co_tay', 'Cổ tay'], ['size', 'Size đang đeo'], ['mua_cho_ai', 'Mua cho'], ['menh', 'Mệnh/tuổi'], ['tam_gia', 'Tầm giá'], ['quan_tam', 'Đang quan tâm'], ['viec_dang_do', 'Việc đang dở'], ['luu_y', 'Lưu ý']].forEach(([k, lab]) => { if (v[k]) L.push(lab + ': ' + v[k]); });
     if (A.cross && A.cross.length) L.push('Khách này cũng nhắn Zalo ' + A.cross.map((x) => x.br + (x.orders ? ` (đã mua ${x.orders} đơn)` : ' (đã hỏi)')).join(', '));
     return L.join('\n');
@@ -1049,13 +1071,13 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
   const profPushAt = {};
   function pushProfile(pf, now) {
     if (!cfg.hook || !pf || !pf.conv) return; if (!now && Date.now() - (profPushAt[pf.conv] || 0) < 90000) return; profPushAt[pf.conv] = Date.now();
-    hookSend({ action: 'profile', rows: [[pf.conv, pf.br || '', pf.name || '', (pf.phones || []).join(' '), new Date(pf.at || Date.now()).toISOString(), JSON.stringify({ full: pf.full || null, inc: pf.inc || {}, ev: pf.ev || [], fullAt: pf.fullAt || 0, fullLast: pf.fullLast || '', fullN: pf.fullN || 0, orders: pf.orders || 0, v124: pf.v124 || 0, from: pf.from || '' }).slice(0, 40000)]] });
+    hookSend({ action: 'profile', rows: [[pf.conv, pf.br || '', pf.name || '', (pf.phones || []).length ? "'" + pf.phones.join(' ') : '', new Date(pf.at || Date.now()).toISOString(), JSON.stringify({ full: pf.full || null, inc: pf.inc || {}, ev: pf.ev || [], fullAt: pf.fullAt || 0, fullLast: pf.fullLast || '', fullN: pf.fullN || 0, orders: pf.orders || 0, v124: pf.v124 || 0, from: pf.from || '' }).slice(0, 40000)]] });
   }
   async function loadProfiles() {
     if (!cfg.hook) return;
     try {
       const j = await (await fetch(cfg.hook + (cfg.hook.includes('?') ? '&' : '?') + 'profiles=1&t=' + Date.now())).json(); if (!j || !j.ok || !Array.isArray(j.rows)) return;
-      let n = 0; j.rows.forEach((r) => { const at = Date.parse(r[4]) || 0; if (!r[0] || (PROF[r[0]] && (PROF[r[0]].at || 0) >= at)) return; let x = {}; try { x = JSON.parse(r[5] || '{}'); } catch (e) { } PROF[r[0]] = Object.assign({ conv: r[0], br: r[1], name: r[2], phones: String(r[3] || '').split(' ').filter(Boolean), at }, x); n++; });
+      let n = 0; j.rows.forEach((r) => { const at = Date.parse(r[4]) || 0; if (!r[0] || (PROF[r[0]] && (PROF[r[0]].at || 0) >= at)) return; let x = {}; try { x = JSON.parse(r[5] || '{}'); } catch (e) { } PROF[r[0]] = Object.assign({ conv: r[0], br: r[1], name: r[2], phones: String(r[3] || '').replace(/^'/, '').split(' ').filter(Boolean).map((p) => (/^[35789]\d{8}$/.test(p) ? '0' + p : p)), at }, x); n++; });
       if (n) { saveProf(); renderHs(); renderCtx(); }
     } catch (e) { }
   }
@@ -1069,32 +1091,42 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
     if (!A || !A.page) return {}; const pend = pendingOf(A.msgs || []).map((m) => m.text || '').join(' '); const v = profileView(A);
     return { qr: (sg && sg.guiAnh === 'qr') || /chuyển khoản|\bck\b|stk|số tài khoản|tài khoản ngân hàng|quét mã/i.test(pend), dotay: A.page.short === 'SMH' && ((sg && sg.guiAnh === 'dotay') || (/size|mấy li|bao nhiêu li|rộng|chật|vừa tay|đổi size|cổ tay/i.test(pend) && !v.co_tay)) };
   }
+  function imgText(kind, A) {
+    const sg = S.sg[A.convId]; const pron = (sg && sg.pron) || (profileView(A).xung_ho || 'bạn');
+    let t = kind === 'dotay' ? cfg.txtDotay || DEFAULTS.txtDotay : cfg.txtQr || DEFAULTS.txtQr;
+    if (kind === 'qr') { const d = donOf(A); const n = moneyOf(d.thu || ''); if (n >= 10000 && !/0\s*đ|0đ/.test(d.thu || '')) t = (cfg.txtQrTong || DEFAULTS.txtQrTong).replace('{tong}', fmtVnd(n)); }
+    return finishText(t, norm(pron));
+  }
+  const previewCount = () => document.querySelectorAll('.reply-box-container .preview-item, .preview-item--photo').length;
   async function sendImage(kind) {
     const A = S.active; const im = IMG[kind]; if (!A || !A.page || !im || S.sending) return;
-    if (im.only && A.page.short !== im.only) { S.err = 'Ảnh này có logo Sơn Mộc Hương – chỉ gửi ở Zalo SMH'; render(); return; }
-    const nick = domNick(); if (nick && A.name && similarity(nick, A.name) < 0.6) { S.err = `Khung chat đang là "${nick}", không phải "${A.name}" – không gửi`; render(); return; }
+    if (im.only && A.page.short !== im.only) { S.err = 'Ảnh này có logo Sơn Mộc Hương – chỉ dùng ở Zalo SMH'; render(); return; }
+    const nick = domNick(); if (nick && A.name && similarity(nick, A.name) < 0.6) { S.err = `Khung chat đang là "${nick}", không phải "${A.name}" – không đưa ảnh vào`; render(); return; }
     const ta = chatBox(); if (!ta) { S.err = 'Không tìm thấy ô chat'; render(); return; }
-    const cur = (ta.value || '').trim(); if (cur && !isBotText(cur)) { S.err = 'Ô chat đang có chữ bạn gõ – gửi hoặc xoá chữ đó trước rồi bấm gửi ảnh'; render(); return; }
+    const cur = (ta.value || '').trim(); if (cur && !isBotText(cur)) { S.err = 'Ô chat đang có chữ bạn gõ – gửi hoặc xoá chữ đó trước rồi bấm lại'; render(); return; }
+    const text = imgText(kind, A);
     S.sending = true; S.imgStage = '⏳ đang tải ' + im.label; render(); const t0 = Date.now();
     try {
-      if (cur) setChat(ta, '');
       const file = await imgFile(kind);
-      const before = document.querySelectorAll('img[src^="blob:"]').length;
+      const before = previewCount();
       S.imgStage = '⏳ đang đưa ảnh vào ô chat'; render();
       const dt = new DataTransfer(); dt.items.add(file); ta.focus();
       ta.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
-      let preview = false; for (let k = 0; k < 12 && !preview; k++) { await sleep(300); preview = document.querySelectorAll('img[src^="blob:"]').length > before; }
-      const sentNow = async () => { try { const d = await fetchMsgs(A.pid, A.convId, A.custId, 1); const hit = d.msgs.slice(-4).some((m) => !m.k && m.att.some((x) => x.type === 'photo') && Date.parse(m.t + 'Z') > t0 - 90000); if (hit) A.msgs = d.msgs; return hit; } catch (e) { return false; } };
-      if (!preview && await sentNow()) { log(`Đã gửi ${im.label} (Pancake gửi thẳng khi dán)`, 'ok', { conv: A.convId }); return; }
-      if (!preview) { await copyImg(kind); log(`Không tự đưa được ${im.label} vào ô chat → đã chép ảnh, nhân viên bấm Ctrl+V rồi Enter`, 'warn', { conv: A.convId }); alert(`Đã chép ${im.label}.\nBấm vào ô chat Pancake, nhấn Ctrl+V rồi Enter để gửi cho khách.`); return; }
-      S.imgStage = '⏳ đang gửi ' + im.label; render();
-      const btn = document.querySelector('[aria-label="Gửi tin nhắn"]') || document.querySelector('[title="Gửi tin nhắn"]');
-      if (btn) btn.click(); else ta.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
-      let ok = false; for (let k = 0; k < 6 && !ok; k++) { await sleep(1500); try { const d = await fetchMsgs(A.pid, A.convId, A.custId, 1); ok = d.msgs.slice(-4).some((m) => !m.k && m.att.some((a) => a.type === 'photo') && Date.parse(m.t + 'Z') > t0 - 90000); if (ok) A.msgs = d.msgs; } catch (e) { } }
-      log(ok ? `Đã gửi ${im.label} (${Math.round((Date.now() - t0) / 1000)}s)` : `Đã bấm gửi ${im.label} nhưng chưa thấy ảnh trong hội thoại – kiểm tra giúp`, ok ? 'ok' : 'err', { conv: A.convId });
-      hookSend({ action: 'log', rows: [[new Date().toISOString(), cfg.userName, 'gui-anh', A.page.short + ' ' + A.convId, JSON.stringify({ anh: kind, ok })]] });
-    } catch (e) { S.err = 'Gửi ảnh lỗi: ' + e.message; log('Gửi ảnh lỗi: ' + e.message, 'err'); }
-    finally { S.sending = false; S.imgStage = ''; render(); }
+      let preview = false; for (let k = 0; k < 30 && !preview; k++) { await sleep(350); preview = previewCount() > before; }
+      const box = chatBox() || ta; setChat(box, text); S.imgFill = S.imgFill || {}; S.imgFill[A.convId] = { kind, text, at: Date.now(), preview };
+      if (!preview) {
+        await copyImg(kind);
+        S.imgStage = `📋 Đã chép ${im.label} + điền câu kèm – bấm vào ô chat, Ctrl+V rồi Gửi`;
+        log(`Pancake chưa nhận ảnh dán tự động → đã chép ${im.label}, nhân viên bấm Ctrl+V (${Math.round((Date.now() - t0) / 1000)}s)`, 'warn', { conv: A.convId, anh: kind });
+        alert(`Đã chép ${im.label} và điền câu kèm vào ô chat.\nBấm vào ô chat Pancake, nhấn Ctrl+V rồi bấm Gửi.`);
+      } else {
+        S.imgStage = `✓ Đã đưa ${im.label} + câu kèm vào ô chat – xem lại rồi bấm Gửi`;
+        log(`Đã đưa ${im.label} + câu kèm vào ô chat (${Math.round((Date.now() - t0) / 1000)}s) – chờ nhân viên bấm gửi`, 'ok', { conv: A.convId, anh: kind, text });
+      }
+      hookSend({ action: 'log', rows: [[new Date().toISOString(), cfg.userName, 'anh-dien', A.page.short + ' ' + A.convId, JSON.stringify({ anh: kind, cau_kem: text, tu_dan: preview })]] });
+      setTimeout(() => { if (S.imgStage && /Đã (đưa|chép)/.test(S.imgStage)) { S.imgStage = ''; render(); } }, 20000);
+    } catch (e) { S.imgStage = ''; S.err = 'Đưa ảnh lỗi: ' + e.message; log('Đưa ảnh lỗi: ' + e.message, 'err'); }
+    finally { S.sending = false; render(); }
   }
 
   // ===================== TỰ RÀ SOÁT MỖI ĐÊM =====================
@@ -1322,6 +1354,9 @@ position:fixed;right:14px;bottom:10px;z-index:999998;width:470px;max-width:calc(
           <label>Link Sheet bộ não (đã xuất bản)</label><input id="c-sheet">
           <label>Link Apps Script Pancake</label><input id="c-hook" placeholder="https://script.google.com/macros/s/…/exec">
           <label>Miễn phí ship cho đơn từ (đồng)</label><input id="c-freeship" type="number" min="0" step="10000">
+          <label>Câu đi kèm ảnh đo tay</label><textarea id="c-txtdotay" rows="2"></textarea>
+          <label>Câu đi kèm mã QR (chưa biết tổng tiền)</label><textarea id="c-txtqr" rows="2"></textarea>
+          <label>Câu đi kèm mã QR (đã biết tổng – {tong} là số tiền)</label><textarea id="c-txtqrtong" rows="2"></textarea>
           <label>Khách chờ quá (phút) thì panel nháy đỏ</label><input id="c-wait" type="number" min="1">
           <div class="kb" id="c-kb"></div>
           <div class="sc" id="c-sc"></div>
@@ -1374,9 +1409,9 @@ position:fixed;right:14px;bottom:10px;z-index:999998;width:470px;max-width:calc(
     els.don.oninput = () => { if (S.active) S.donEdit[S.active.convId] = els.don.value; };
     // cấu hình
     const C = (id) => $(id);
-    const fillCfg = () => { C('c-auto').checked = !!cfg.autoSuggest; C('c-fill').checked = !!cfg.autoFill; C('c-note').checked = !!cfg.autoNote; C('c-img').checked = !!cfg.readImages; C('c-blink').checked = !!cfg.blink; C('c-scrape').checked = !!cfg.scrape; C('c-learn').checked = !!cfg.learn; C('c-review').checked = !!cfg.selfReview; C('c-promo-smh').value = cfg.promoSMH || ''; C('c-promo-thhx').value = cfg.promoTHHX || ''; C('c-key').value = cfg.geminiKey; C('c-model').value = cfg.model; C('c-sheet').value = cfg.sheetPub; C('c-hook').value = cfg.hook; C('c-wait').value = cfg.waitMin; C('c-freeship').value = cfg.freeshipMin; C('c-user').textContent = cfg.userName || '(đang lấy từ tài khoản Pancake…)'; els.cfg.classList.remove('isdirty'); renderCfgInfo(); };
+    const fillCfg = () => { C('c-auto').checked = !!cfg.autoSuggest; C('c-fill').checked = !!cfg.autoFill; C('c-note').checked = !!cfg.autoNote; C('c-img').checked = !!cfg.readImages; C('c-blink').checked = !!cfg.blink; C('c-scrape').checked = !!cfg.scrape; C('c-learn').checked = !!cfg.learn; C('c-review').checked = !!cfg.selfReview; C('c-promo-smh').value = cfg.promoSMH || ''; C('c-promo-thhx').value = cfg.promoTHHX || ''; C('c-key').value = cfg.geminiKey; C('c-model').value = cfg.model; C('c-sheet').value = cfg.sheetPub; C('c-hook').value = cfg.hook; C('c-wait').value = cfg.waitMin; C('c-freeship').value = cfg.freeshipMin; C('c-txtdotay').value = cfg.txtDotay || ''; C('c-txtqr').value = cfg.txtQr || ''; C('c-txtqrtong').value = cfg.txtQrTong || ''; C('c-user').textContent = cfg.userName || '(đang lấy từ tài khoản Pancake…)'; els.cfg.classList.remove('isdirty'); renderCfgInfo(); };
     const cfgShow = (on) => { els.cfg.classList.toggle('show', on); if (on) fillCfg(); };
-    const applyCfg = () => { const wasScrape = cfg.scrape; cfg.autoSuggest = C('c-auto').checked; cfg.autoFill = C('c-fill').checked; cfg.autoNote = C('c-note').checked; cfg.readImages = C('c-img').checked; cfg.blink = C('c-blink').checked; cfg.scrape = C('c-scrape').checked; cfg.learn = C('c-learn').checked; cfg.selfReview = C('c-review').checked; cfg.promoSMH = C('c-promo-smh').value.trim(); cfg.promoTHHX = C('c-promo-thhx').value.trim(); cfg.geminiKey = C('c-key').value.trim(); cfg.model = C('c-model').value.trim() || DEFAULTS.model; cfg.sheetPub = C('c-sheet').value.trim() || DEFAULTS.sheetPub; cfg.hook = C('c-hook').value.trim(); cfg.waitMin = Number(C('c-wait').value) || DEFAULTS.waitMin; cfg.freeshipMin = Math.max(0, Number(C('c-freeship').value)); if (!C('c-freeship').value) cfg.freeshipMin = DEFAULTS.freeshipMin; saveCfg(); els.cfg.classList.remove('isdirty'); log('Đã lưu cấu hình', 'ok', false); if (cfg.scrape && !wasScrape) scrapeLoop(); if (cfg.hook) flushHook(); if (!S.kb) loadKB(true); render(); };
+    const applyCfg = () => { const wasScrape = cfg.scrape; cfg.autoSuggest = C('c-auto').checked; cfg.autoFill = C('c-fill').checked; cfg.autoNote = C('c-note').checked; cfg.readImages = C('c-img').checked; cfg.blink = C('c-blink').checked; cfg.scrape = C('c-scrape').checked; cfg.learn = C('c-learn').checked; cfg.selfReview = C('c-review').checked; cfg.promoSMH = C('c-promo-smh').value.trim(); cfg.promoTHHX = C('c-promo-thhx').value.trim(); cfg.geminiKey = C('c-key').value.trim(); cfg.model = C('c-model').value.trim() || DEFAULTS.model; cfg.sheetPub = C('c-sheet').value.trim() || DEFAULTS.sheetPub; cfg.hook = C('c-hook').value.trim(); cfg.waitMin = Number(C('c-wait').value) || DEFAULTS.waitMin; cfg.freeshipMin = Math.max(0, Number(C('c-freeship').value)); if (!C('c-freeship').value) cfg.freeshipMin = DEFAULTS.freeshipMin; ['txtDotay', 'txtQr', 'txtQrTong'].forEach((k) => { cfg[k] = C('c-' + k.toLowerCase()).value.trim() || DEFAULTS[k]; }); saveCfg(); els.cfg.classList.remove('isdirty'); log('Đã lưu cấu hình', 'ok', false); if (cfg.scrape && !wasScrape) scrapeLoop(); if (cfg.hook) flushHook(); if (!S.kb) loadKB(true); render(); };
     panel.querySelector('.cb2').addEventListener('input', () => els.cfg.classList.add('isdirty')); panel.querySelector('.cb2').addEventListener('change', () => els.cfg.classList.add('isdirty'));
     C('tdg-cfgx').onclick = () => { if (els.cfg.classList.contains('isdirty') && !confirm('Có thay đổi chưa lưu. Đóng và bỏ thay đổi?')) return; cfgShow(false); };
     C('c-save').onclick = () => { applyCfg(); cfgShow(false); };
@@ -1523,7 +1558,7 @@ position:fixed;right:14px;bottom:10px;z-index:999998;width:470px;max-width:calc(
       if (nc) z.push('<button class="p" data-act="forcedraft">Vẫn soạn</button><button data-act="iscust">✓ Là khách mua</button>');
       else { if (ended) z.push('<button class="p" data-act="proactive">✍ Soạn câu nhắn chủ động</button>'); z.push('<button data-act="notcust" title="Nhân viên nội bộ, nhà cung cấp, quảng cáo… – bot sẽ nhớ cho mọi máy">🚫 Không phải khách</button>'); }
     }
-    if (A && A.page && !busy) { const h = imgHint(A, sg); const ib = (k, lab) => `<button class="${h[k] ? 'p ib' : 'ib'}" data-act="sendimg" data-val="${k}" ${S.sending ? 'disabled' : ''} title="Gửi luôn ${IMG[k].label} cho khách">${h[k] ? '⭐ ' : ''}📎 ${lab}</button>`; z.push((A.page.short === 'SMH' ? ib('dotay', 'Ảnh đo tay') : '') + ib('qr', 'Mã QR chuyển khoản')); if (S.imgStage) z.push(`<span class="mini">${esc(S.imgStage)}</span>`); }
+    if (A && A.page && !busy) { const h = imgHint(A, sg); const ib = (k, lab) => `<button class="${h[k] ? 'p ib' : 'ib'}" data-act="sendimg" data-val="${k}" ${S.sending ? 'disabled' : ''} title="Đưa ${IMG[k].label} + câu kèm vào ô chat để bạn xem lại rồi gửi">${h[k] ? '⭐ ' : ''}📎 ${lab}</button>`; z.push((A.page.short === 'SMH' ? ib('dotay', 'Ảnh đo tay') : '') + ib('qr', 'Mã QR chuyển khoản')); if (S.imgStage) z.push(`<span class="mini">${esc(S.imgStage)}</span>`); }
     const zh = z.join(''); if (els.zact.innerHTML !== zh) els.zact.innerHTML = zh;
   }
   function renderLines(busy, sg) {
