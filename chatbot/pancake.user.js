@@ -1113,7 +1113,7 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
     const old = panel.querySelector('#tdg-imged'); if (old) old.remove();
     const c = CUS[key] || {}; let newBlob = null;
     const box = document.createElement('div'); box.id = 'tdg-imged';
-    box.innerHTML = `<div class="ie-in"><div class="ie-h"><b>✏️ ${esc(im.label)} – Zalo ${esc(sh)}</b><a data-x="close">✕</a></div>
+    box.innerHTML = `<div class="ie-in"><div class="ie-h"><b>✏️ ${esc(im.label[0].toUpperCase() + im.label.slice(1))} – Zalo ${esc(sh)}</b><a data-x="close">✕</a></div>
       <div class="ie-img"><img alt=""><span class="ie-no">Chưa có ảnh</span></div>
       <div class="ie-row"><label class="b ie-pick">🖼 Đổi ảnh<input type="file" accept="image/*" hidden></label><span class="ie-st"></span></div>
       <label class="ie-l">Câu gửi kèm ảnh</label><textarea rows="3"></textarea>
@@ -1259,6 +1259,9 @@ Chỉ điền thông tin MỚI vừa xuất hiện ở mấy tin gần nhất m�
 #tdg #tdg-zact:empty{display:none}
 #tdg #tdg-zact button{flex:1;min-width:120px;padding:6px 8px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;font-size:12px;cursor:pointer}
 #tdg #tdg-zact button.p{background:#0f766e;color:#fff;border-color:#0f766e}
+#tdg #tdg-zact .ibw{display:inline-flex;align-items:center;gap:1px;margin-right:2px}
+#tdg #tdg-zact button.pen{flex:0 0 auto;min-width:0;width:auto;border:0;background:transparent;padding:2px 3px;font-size:11px;opacity:.7}
+#tdg #tdg-zact button.pen:hover{opacity:1;background:#f1f5f9}
 #tdg textarea.promo{width:100%;min-height:72px;font-size:12px;box-sizing:border-box}
 #tdg{--ai:#7c3aed;--ai2:#c4b5fd;--ok:#14b8a6;--okd:#0f766e;--wait:#f97316;--late:#dc2626;--off:#cbd5e1;--att:#fef3c7;
 position:fixed;right:14px;bottom:10px;z-index:999998;width:470px;max-width:calc(100vw - 28px);max-height:78vh;display:flex;flex-direction:column;background:#fff;border:2px solid var(--bd,var(--ok));border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.18);font:14px/1.45 -apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#1f2937;box-sizing:border-box}
